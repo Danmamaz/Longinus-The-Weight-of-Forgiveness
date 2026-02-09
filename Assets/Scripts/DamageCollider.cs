@@ -1,0 +1,23 @@
+using UnityEngine;
+
+public class DamageCollider : MonoBehaviour
+{
+    [SerializeField] private float damageAmount;
+    [SerializeField] private GameObject owner; // Root object of the owner (player/enemy)
+
+    private void OnTriggerEnter(Collider other)
+    {
+        // Prevent attacking the owner 
+        if (other.gameObject == owner) return;
+
+        // Searching for the Interface, TryGetComponent faster than GetComponent 
+        if (other.TryGetComponent<IDamageable>(out var damageable))
+        {
+            // Determine the approximate point of contact
+            Vector3 hitPoint = other.ClosestPoint(transform.position);
+            Vector3 hitNormal = (transform.position - hitPoint).normalized;
+
+            damageable.TakeDamage(damageAmount, hitPoint, hitNormal);
+        }
+    }
+}
