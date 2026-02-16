@@ -29,18 +29,50 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _DistortionStrength: 0.1
-    - _FoamThreshold: 0.3
+    - _AbsorptionCoeff: 4
+    - _CrestFoam: 0.7
+    - _DeepTransparency: 0.3
+    - _DeepTransparencyFalloff: 0.8
+    - _DepthFactor: 1.5
+    - _DistortionStrength: 0.03
+    - _FlowSpeed: 1
+    - _FoamCutoff: 0.8
+    - _FoamDepthMax: 0
+    - _FoamNoiseScale: 10
+    - _FoamThreshold: 0.05
+    - _Glossiness: 0.5
+    - _HighlightThreshold: 0.7
+    - _JitterIntensity: 0.5
+    - _Metallic: 0
+    - _NoiseScale: 15
+    - _NoiseScale2: 15
     - _NoiseScaleX: 2
-    - _NoiseScaleY: 0.5
-    - _PixelSize: 1
-    - _WaveIntensity: 0
+    - _NoiseScaleY: 2
+    - _NoiseSpeed: 0.5
+    - _PixelSize: 0.0001
+    - _SpecularPower: 100
+    - _WaveFrequency: 1
+    - _WaveHeight: 0.5
+    - _WaveIntensity: 0.5
     - _WaveScale: 20
     - _WaveSpeed: 1
+    - _WetThreshold: 2
+    - _WhitecapIntensity: 0.418
+    - _WhitecapMinDepth: 2.14
+    - _WhitecapScale: 3.5
+    - _WhitecapSpeed: 0.04
+    - _WhitecapThreshold: 1
     m_Colors:
-    - _DeepColor: {r: 0, g: 0.19999996, b: 0.39999998, a: 1}
+    - _AbsorptionTint: {r: 0.6, g: 0.75, b: 0.5, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _DeepColor: {r: 0, g: 0.5, b: 1, a: 1}
+    - _FlowDir: {r: 1, g: 0.3, b: 0, a: 0}
     - _FoamColor: {r: 0.88, g: 1, b: 1, a: 1}
     - _HighlightColor: {r: 1, g: 1, b: 1, a: 1}
     - _ShallowColor: {r: 0.68, g: 0.85, b: 0.9, a: 1}
+    - _SpecularColor: {r: 1, g: 0.9, b: 0.6, a: 1}
+    - _SunDirection: {r: -0.5, g: 0.8, b: 0.2, a: 0}
+    - _WetSandColor: {r: 0.5, g: 0.39999998, b: 0.29999998, a: 1}
+    - _WhitecapColor: {r: 0.85, g: 0.88, b: 0.82, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

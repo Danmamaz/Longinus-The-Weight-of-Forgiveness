@@ -39,6 +39,6 @@ namespace PlotBranching
         // Added NPC link
         public NPCData linkedNPC;
 
-        public GameObject miniGamePrefab; 
+        public GameObject miniGamePrefab;
     }
 }
