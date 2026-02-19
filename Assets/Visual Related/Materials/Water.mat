@@ -65,7 +65,7 @@ Material:
     m_Colors:
     - _AbsorptionTint: {r: 0.6, g: 0.75, b: 0.5, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _DeepColor: {r: 0, g: 0.5, b: 1, a: 1}
+    - _DeepColor: {r: 0, g: 0.4198113, b: 0.8396226, a: 1}
     - _FlowDir: {r: 1, g: 0.3, b: 0, a: 0}
     - _FoamColor: {r: 0.88, g: 1, b: 1, a: 1}
     - _HighlightColor: {r: 1, g: 1, b: 1, a: 1}
