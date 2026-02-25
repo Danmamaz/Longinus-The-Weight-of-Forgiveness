@@ -28,6 +28,7 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private Collider[] hits;
 
     private EnemyStateMachine _stateMachine;
+    public EnemyStateMachine StateMachine => _stateMachine;
     private float _viewDotThreshold;
 
     // --- Last-known position ---
