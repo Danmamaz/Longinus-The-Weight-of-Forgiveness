@@ -53,4 +53,9 @@ public class EnemyMovementManager : MonoBehaviour
 
     public bool ReachedDestination() => !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance;
 
+    public void MoveToPosition(Vector3 targetPosition)
+{
+    _agent.isStopped = false;
+    _agent.SetDestination(targetPosition);
+}
 }

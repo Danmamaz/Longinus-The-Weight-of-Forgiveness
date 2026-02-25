@@ -113,16 +113,16 @@ public class EnemyChaseState : EnemyBaseState
     }
 
     public override void CheckSwitchState()
+{
+    if (_ctx.IsPlayerInAttackRange())
     {
-        if (_ctx.IsPlayerInAttackRange())
-        {
-            _stateMachine.ChangeState(_ctx.AttackState);
-        }
-        else if (!_ctx.IsPlayerInDetectionRange())
-        {
-            _stateMachine.ChangeState(_ctx.IdleState);
-        }
+        _stateMachine.ChangeState(_ctx.AttackState);
     }
+    else if (!_ctx.IsPlayerInDetectionRange())
+    {
+        _stateMachine.ChangeState(_ctx.SearchState);
+    }
+}
 }
 
 public class EnemyAttackState : EnemyBaseState
@@ -219,6 +219,64 @@ public class EnemyPatrolState : EnemyBaseState
         if (_ctx.patrolWaypoints != null && _ctx.patrolWaypoints.Length > 0)
         {
             _ctx.MovementManager.MoveTo(_ctx.patrolWaypoints[_currentWaypointIndex]);
+        }
+    }
+}
+
+public class EnemySearchState : EnemyBaseState
+{
+    public EnemySearchState(EnemyController ctx, EnemyStateMachine stateMachine) 
+        : base(ctx, stateMachine) { }
+
+    public override void EnterState()
+    {
+        // Якщо є анімація пошуку чи ходьби — викликай тут
+        // _ctx.Animator.Play("Search"); 
+        
+        if (_ctx.HasLastKnownPosition)
+        {
+            _ctx.MovementManager.MoveToPosition(_ctx.LastKnownPlayerPosition);
+        }
+    }
+
+    public override void UpdateState()
+    {
+        // NavMeshAgent сам веде ворога до цілі, нам не треба рухати його вручну кожен кадр
+    }
+
+    public override void FixedUpdateState() { }
+
+    public override void CheckSwitchState()
+    {
+        // Якщо гравець знову в зоні видимості — переслідуємо
+        if (_ctx.IsPlayerInDetectionRange())
+        {
+            _stateMachine.ChangeState(_ctx.ChaseState);
+            return;
+        }
+
+        // Якщо дійшли до останньої відомої точки або точки взагалі немає — кидаємо пошук
+        if (_ctx.HasReachedLastKnownPosition() || !_ctx.HasLastKnownPosition)
+        {
+            _ctx.ClearLastKnownPosition();
+            TransitionToIdle();
+        }
+    }
+
+    public override void ExitState()
+    {
+        _ctx.MovementManager.Stop();
+    }
+
+    private void TransitionToIdle()
+    {
+        if (_ctx.patrolingEnemy && _ctx.patrolWaypoints != null && _ctx.patrolWaypoints.Length > 0)
+        {
+            _stateMachine.ChangeState(_ctx.PatrolState);
+        }
+        else
+        {
+            _stateMachine.ChangeState(_ctx.IdleState);
         }
     }
 }
