@@ -1,5 +1,4 @@
 using UnityEngine;
-using Combat;
 
 namespace PlotBranching
 {
@@ -18,11 +17,5 @@ namespace PlotBranching
         [TextArea]
         public string description;
 
-        [Header("Combat Data")]
-        [Tooltip("Pool of attacks available to this boss.")]
-        public BossAttackData[] attacks;
-
-        [Tooltip("Dedicated lunge attack triggered on player heal.")]
-        public BossAttackData lungeAttack;
     }
 }

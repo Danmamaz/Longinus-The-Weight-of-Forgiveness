@@ -1,9 +1,11 @@
 using UnityEngine;
 
+namespace InGameItems
+{
 public class DamageCollider : MonoBehaviour
 {
     [SerializeField] private float damageAmount;
-    [SerializeField] private GameObject owner; // Root object of the owner (player/enemy)
+    [SerializeField] private GameObject owner;
 
     private void OnTriggerEnter(Collider other)
     {
@@ -20,4 +22,5 @@ public class DamageCollider : MonoBehaviour
             damageable.TakeDamage(damageAmount, hitPoint, hitNormal);
         }
     }
+}
 }

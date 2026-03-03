@@ -1,12 +1,13 @@
 using UnityEngine;
-using PlotBranching; // Namespace from your files
+using PlotBranching;
 
+namespace InGameItems
+{
 public class DecisionInteractable : MonoBehaviour, IInteractable
 {
     [Header("Configuration")]
     public DecisionNode decisionToTrigger;
     
-    // Reference to the DecisionHandler in the scene
     [SerializeField] DecisionHandler decisionHandler; 
 
     public void Interact()
@@ -27,4 +28,5 @@ public class DecisionInteractable : MonoBehaviour, IInteractable
     {
         return "Press E to Decide";
     }
+}
 }

@@ -1,61 +1,73 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-public class EnemyMovementManager : MonoBehaviour
+namespace Enemy.BaseEnemy
 {
-    private NavMeshAgent _agent;
-
-    [SerializeField] private Transform playerTarget;
-
-    [SerializeField] private float stoppingDistance = 2f;
-
-
-    private void Awake()
+    [RequireComponent(typeof(NavMeshAgent))]
+    public class EnemyMovementManager : MonoBehaviour
     {
-        AgentSetup();
-    }
+        [Header("Settings")]
+        [SerializeField, Range(0f, 10f)] private float stoppingDistance = 2f;
 
-    public void AgentSetup()
-    {
-        _agent = GetComponent<NavMeshAgent>();
-        _agent.stoppingDistance = stoppingDistance;
+        private NavMeshAgent _agent;
+        private Transform _currentTarget;
 
-        if (playerTarget == null)
+#region Unity Lifecycle
+
+        private void Awake()
         {
-            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj != null)
-                playerTarget = playerObj.transform;
+            _agent = GetComponent<NavMeshAgent>();
+            _agent.stoppingDistance = stoppingDistance;
         }
-    }
 
-    public void Chase()
-    {
-        if (playerTarget != null)
+#endregion
+
+#region Movement
+        public void SetTarget(Transform target)
         {
+            _currentTarget = target;
+        }
+
+        public void Chase()
+        {
+            if (_currentTarget == null || !_agent.isOnNavMesh) return;
+
             _agent.isStopped = false;
-            _agent.SetDestination(playerTarget.position);
+            _agent.SetDestination(_currentTarget.position);
         }
-    }
 
-    public void Stop()
-    {
-        _agent.isStopped = true;
-    }
-
-    public void MoveTo(Transform target)
-    {
-        if (target != null)
+        public void Stop()
         {
+            if (!_agent.isOnNavMesh) return;
+            
+            _agent.isStopped = true;
+            _agent.ResetPath();
+        }
+
+        public void MoveTo(Transform target)
+        {
+            if (target == null || !_agent.isOnNavMesh) return;
+
             _agent.isStopped = false;
             _agent.SetDestination(target.position);
         }
+
+        public void MoveToPosition(Vector3 targetPosition)
+        {
+            if (!_agent.isOnNavMesh) return;
+
+            _agent.isStopped = false;
+            _agent.SetDestination(targetPosition);
+        }
+
+        public bool ReachedDestination()
+        {
+            if (!_agent.isOnNavMesh || _agent.pathPending) return false;
+
+            if (float.IsPositiveInfinity(_agent.remainingDistance)) return false;
+
+            return _agent.remainingDistance <= _agent.stoppingDistance;
+        }
     }
-
-    public bool ReachedDestination() => !_agent.pathPending && _agent.remainingDistance <= _agent.stoppingDistance;
-
-    public void MoveToPosition(Vector3 targetPosition)
-{
-    _agent.isStopped = false;
-    _agent.SetDestination(targetPosition);
-}
+#endregion
 }
