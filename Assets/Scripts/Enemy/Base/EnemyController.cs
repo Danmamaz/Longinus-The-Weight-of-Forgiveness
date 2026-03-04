@@ -14,6 +14,8 @@ namespace Enemy.BaseEnemy
         [Header("AI Sensors & Settings")]
         [SerializeField, Tooltip("Радіус виявлення гравця")] 
         private float detectionRange = 10f;
+        [SerializeField, Tooltip("Кут зору противника (в градусах)")] 
+        private float fieldOfViewAngle = 120f; // Додай це. 120-140 градусів - стандарт.
         [SerializeField, Tooltip("Радіус для переходу в атаку")] 
         private float attackRange = 2f;
         
@@ -135,13 +137,28 @@ namespace Enemy.BaseEnemy
             if (playerTransform == null) return false;
             
             Vector3 directionToPlayer = playerTransform.position - transform.position;
+            
+            // 1. ФАЗА ПЕРША: Перевірка дистанції
             if (directionToPlayer.sqrMagnitude > _sqrDetectionRange) return false;
 
-            if (Physics.Raycast(transform.position + Vector3.up, directionToPlayer.normalized, out RaycastHit hit, detectionRange, obstacleLayer))
+            // 2. ФАЗА ДРУГА: Перевірка кута зору (Field of View)
+            // Ми беремо кут між тим, куди дивиться ворог (transform.forward) і вектором до гравця
+            float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
+            if (angleToPlayer > fieldOfViewAngle / 2f) return false; // Ділимо на 2, бо кут розходиться в обидві сторони від центру
+
+            // 3. ФАЗА ТРЕТЯ: Line of Sight (Перешкоди)
+            // Raycast кидаємо на дистанцію до гравця (а не на максимальний detectionRange)
+            // і ТІЛЬКИ по шару obstacleLayer.
+            float distanceToPlayer = directionToPlayer.magnitude;
+            Vector3 rayStartOffset = transform.position + Vector3.up; // рівень грудей/очей
+            
+            if (Physics.Raycast(rayStartOffset, directionToPlayer.normalized, out RaycastHit hit, distanceToPlayer, obstacleLayer))
             {
-                if (hit.transform != playerTransform) return false;
+                // Якщо ми влучили в перешкоду на шляху до гравця - стіна перекриває зір. Гравець у безпеці.
+                return false;
             }
 
+            // Якщо ми пройшли всі три фази — ми легально "бачимо" гравця.
             return true;
         }
 
