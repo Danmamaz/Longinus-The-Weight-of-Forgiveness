@@ -5,7 +5,16 @@ namespace InGameItems
 public class DamageCollider : MonoBehaviour
 {
     [SerializeField] private float damageAmount;
+    [SerializeField] private float poiseAmount;
     [SerializeField] private GameObject owner;
+    private Collider _collider;
+
+    private void Awake()
+    {
+        _collider = GetComponent<Collider>();
+        _collider.enabled = false;
+    }
+
 
     private void OnTriggerEnter(Collider other)
     {
@@ -19,8 +28,11 @@ public class DamageCollider : MonoBehaviour
             Vector3 hitPoint = other.ClosestPoint(transform.position);
             Vector3 hitNormal = (transform.position - hitPoint).normalized;
 
-            damageable.TakeDamage(damageAmount, hitPoint, hitNormal);
+            damageable.TakeDamage(damageAmount, poiseAmount, hitPoint, hitNormal);
         }
     }
+
+    public void Enable() => _collider.enabled = true;
+    public void Disable() => _collider.enabled = false;
 }
 }

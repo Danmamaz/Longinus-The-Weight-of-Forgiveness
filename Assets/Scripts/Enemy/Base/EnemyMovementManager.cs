@@ -11,6 +11,7 @@ namespace Enemy.BaseEnemy
 
         private NavMeshAgent _agent;
         private Transform _currentTarget;
+        private bool _rotationLocked;
 
 #region Unity Lifecycle
 
@@ -68,6 +69,36 @@ namespace Enemy.BaseEnemy
 
             return _agent.remainingDistance <= _agent.stoppingDistance;
         }
-    }
+    
 #endregion
+
+#region Rotation
+
+    public void LockRotation()
+    {
+        _rotationLocked = true;
+        _agent.updateRotation = false;
+    }
+
+    public void UnlockRotation()
+    {
+        _rotationLocked = false;
+        _agent.updateRotation = true;
+    }
+
+    public void FaceTarget()
+    {
+        if (_currentTarget == null || _rotationLocked) return;
+
+        Vector3 dir = (_currentTarget.position - transform.position).normalized;
+        dir.y = 0;
+        if (dir != Vector3.zero)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10f);
+        }
+    }
+
+#endregion
+    }
 }

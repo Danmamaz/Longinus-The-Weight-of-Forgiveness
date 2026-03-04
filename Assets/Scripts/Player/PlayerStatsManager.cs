@@ -59,7 +59,7 @@ public class PlayerStatsManager : MonoBehaviour, IDamageable
         return true;
     }
 
-    public void TakeDamage(float amount, Vector3 hitPoint, Vector3 hitNormal)
+    public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
     {
         if (CurrentHealth <= 0) return;
         

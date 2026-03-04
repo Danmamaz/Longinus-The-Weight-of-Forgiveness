@@ -1,4 +1,5 @@
 using UnityEngine;
+using Enemy.BaseEnemy;
 
 namespace Enemy.BaseEnemy
 {
@@ -30,9 +31,14 @@ namespace Enemy.BaseEnemy
         public EnemyAttackState AttackState { get; private set; }
         public EnemyPatrolState PatrolState { get; private set; }
         public EnemySearchState SearchState { get; private set; }
+        public EnemyCombatStrafeState CombatStrafeState { get; private set; }
+        public EnemyStaggeredState StaggeredState { get; private set; }
+
 
         public bool HasLastKnownPosition { get; private set; }
         public Vector3 LastKnownPlayerPosition { get; private set; }
+
+        public Transform PlayerTransform => playerTransform;
 
         private bool _isDead;
         
@@ -56,6 +62,8 @@ namespace Enemy.BaseEnemy
             AttackState = new EnemyAttackState(this, _stateMachine);
             PatrolState = new EnemyPatrolState(this, _stateMachine);
             SearchState = new EnemySearchState(this, _stateMachine);
+            CombatStrafeState = new EnemyCombatStrafeState(this, _stateMachine);
+            StaggeredState = new EnemyStaggeredState(this, _stateMachine);
         }
 
         private void OnEnable()
@@ -64,6 +72,7 @@ namespace Enemy.BaseEnemy
             ClearLastKnownPosition();
             
             _statsManager.OnDeath += HandleDeath;
+            _statsManager.OnPoiseBreak += HandlePoiseBreak;
 
             if (playerTransform != null)
             {
@@ -155,6 +164,14 @@ namespace Enemy.BaseEnemy
 
             Animator.Play(Animator.StringToHash("Death")); 
         }
+
+        private void HandlePoiseBreak()
+        {
+            if (_isDead) return;
+            _stateMachine.ChangeState(StaggeredState);
+        }
+
+        
 
 #region Gizmos
 
