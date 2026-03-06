@@ -40,6 +40,9 @@ namespace PlotBranching
         public string itemID;
         public int itemQuantityChange;
 
+        [Header("Open Path")]
+        public GameObject objectToRemove;
+
         [Header("Callbacks")]
         public UnityEvent onConsequenceApplied;
     }

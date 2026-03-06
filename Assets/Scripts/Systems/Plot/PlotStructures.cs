@@ -41,7 +41,8 @@ namespace PlotBranching
         WorldStateChange,
         UnlockBoss,
         NPCAttitudeChange,
-        InventoryModify
+        InventoryModify,
+        OpenPath
     }
 
     public enum WorldStateType

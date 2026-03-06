@@ -107,6 +107,10 @@ namespace PlotBranching
                 case ConsequenceType.InventoryModify:
                     // TODO: Add inventory system integration
                     break;
+                
+                case ConsequenceType.OpenPath:
+                    consequence.objectToRemove.SetActive(false);
+                    break;
             }
 
             consequence.onConsequenceApplied?.Invoke();
