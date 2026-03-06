@@ -18,6 +18,7 @@ namespace PlotBranching
         public UnityEvent<string> onChoiceMade;
         public UnityEvent<WorldStateType> onWorldStateChanged;
         public UnityEvent<EndingDefinition> onEndingTriggered;
+        public UnityEvent<string> onPathOpened;
 
         private void Awake()
         {
@@ -109,7 +110,15 @@ namespace PlotBranching
                     break;
                 
                 case ConsequenceType.OpenPath:
-                    consequence.objectToRemove.SetActive(false);
+                    if (!string.IsNullOrEmpty(consequence.pathID))
+                    {
+                        if (!plotState.openedPathIDs.Contains(consequence.pathID))
+                        {
+                            plotState.openedPathIDs.Add(consequence.pathID);
+                        }
+                        // Сповіщаємо всі зацікавлені об'єкти на сцені
+                        onPathOpened?.Invoke(consequence.pathID); 
+                    }
                     break;
             }
 

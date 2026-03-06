@@ -171,6 +171,7 @@ namespace PlotBranching
             public string[] activeBuffIDs;
             public string[] unlockedBossIDs;
             public int saveVersion = 1; // For future migration support
+            public string[] openedPathIDs;
 
             public PlotStateSaveData(PlotState state)
             {
@@ -180,6 +181,7 @@ namespace PlotBranching
                 currentWorldState = (int)state.currentWorldState;
                 activeBuffIDs = state.activeBuffIDs.ToArray();
                 unlockedBossIDs = state.unlockedBossIDs.ToArray();
+                openedPathIDs = state.openedPathIDs.ToArray();
             }
 
             public void ApplyTo(PlotState state)
@@ -190,6 +192,7 @@ namespace PlotBranching
                 state.currentWorldState = (WorldStateType)currentWorldState;
                 state.activeBuffIDs = new System.Collections.Generic.List<string>(activeBuffIDs);
                 state.unlockedBossIDs = new System.Collections.Generic.List<string>(unlockedBossIDs);
+                state.openedPathIDs = new System.Collections.Generic.List<string>(openedPathIDs);
             }
         }
     }

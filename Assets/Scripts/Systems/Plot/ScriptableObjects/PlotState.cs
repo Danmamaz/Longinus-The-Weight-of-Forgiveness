@@ -29,6 +29,7 @@ namespace PlotBranching
 
         [Header("World State")]
         public WorldStateType currentWorldState = WorldStateType.Normal;
+        public List<string> openedPathIDs = new List<string>();
 
         [Header("Active Buffs")]
         public List<string> activeBuffIDs = new List<string>();
