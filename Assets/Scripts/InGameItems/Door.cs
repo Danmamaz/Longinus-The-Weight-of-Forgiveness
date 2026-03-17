@@ -3,7 +3,7 @@ using PlotBranching;
 
 public class Door : MonoBehaviour
 {
-    [Tooltip("Унікальний ID, який має збігатися з pathID у Consequence")]
+    [Tooltip("Унікальний ID, який має збігатися з pathID у ConsequenceSO")]
     public string pathID; 
 
     private void Start()

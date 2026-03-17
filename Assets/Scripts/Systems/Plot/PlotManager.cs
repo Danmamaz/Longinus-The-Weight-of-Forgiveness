@@ -44,9 +44,9 @@ namespace PlotBranching
             plotState.madeDecisionIDs.Add(decision.decisionID);
             plotState.chosenOptions.Add(choseA ? "A" : "B");
 
-            // Apply consequences
-            List<Consequence> consequences = choseA ? decision.choiceAConsequences : decision.choiceBConsequences;
-            foreach (var consequence in consequences)
+            // Apply ConsequenceSOs
+            List<Consequence> Consequences = choseA ? decision.choiceAConsequences : decision.choiceBConsequences;
+            foreach (var consequence in Consequences)
             {
                 ApplyConsequence(consequence);
             }
@@ -59,70 +59,7 @@ namespace PlotBranching
         {
             if (consequence == null) return;
 
-            switch (consequence.type)
-            {
-                case ConsequenceType.KarmaChange:
-                    ChangeKarma(consequence.karmaChange);
-                    break;
-
-                case ConsequenceType.StatModifier:
-                    // TODO: Add your stat system integration here
-                    break;
-
-                case ConsequenceType.BuffAdd:
-                    // TODO: Add buff system integration here
-                    break;
-
-                case ConsequenceType.BuffRemove:
-                    // TODO: Add buff removal here
-                    break;
-                
-                case ConsequenceType.WorldStateChange:
-                    ChangeWorldState(consequence.newWorldState);
-                    break;
-
-                case ConsequenceType.UnlockBoss:
-                    // FIX: Check if the BossData object is assigned, then get its ID
-                    if (consequence.bossToUnlock != null)
-                    {
-                        UnlockBoss(consequence.bossToUnlock.bossID);
-                    }
-                    else
-                    {
-                        Debug.LogError($"Consequence '{consequence.name}' tries to unlock a boss, but no BossData is assigned!");
-                    }
-                    break;
-                    
-                case ConsequenceType.NPCAttitudeChange:
-                    // FIX: Check if the NPCData object is assigned, then get its ID
-                    if (consequence.npcToModify != null)
-                    {
-                        ChangeNPCAttitude(consequence.npcToModify.npcID, consequence.newAttitude);
-                    }
-                    else
-                    {
-                        Debug.LogError($"Consequence '{consequence.name}' tries to change NPC attitude, but no NPCData is assigned!");
-                    }
-                    break;
-                
-                case ConsequenceType.InventoryModify:
-                    // TODO: Add inventory system integration
-                    break;
-                
-                case ConsequenceType.OpenPath:
-                    if (!string.IsNullOrEmpty(consequence.pathID))
-                    {
-                        if (!plotState.openedPathIDs.Contains(consequence.pathID))
-                        {
-                            plotState.openedPathIDs.Add(consequence.pathID);
-                        }
-                        // Сповіщаємо всі зацікавлені об'єкти на сцені
-                        onPathOpened?.Invoke(consequence.pathID); 
-                    }
-                    break;
-            }
-
-            consequence.onConsequenceApplied?.Invoke();
+            consequence.Apply(this);
         }
 
         public void ChangeKarma(int amount)
@@ -132,7 +69,7 @@ namespace PlotBranching
             onKarmaChanged?.Invoke(plotState.currentKarma);
         }
 
-        private void ChangeWorldState(WorldStateType newState)
+        public void ChangeWorldState(WorldStateType newState)
         {
             plotState.currentWorldState = newState;
             onWorldStateChanged?.Invoke(newState);
@@ -215,12 +152,12 @@ namespace PlotBranching
             
             if (plotState.IsGoodEnding())
             {
-                return possibleEndings.FirstOrDefault(e => e.endingID.Contains("Good") || e.endingID.Contains("Saint"));
+                return possibleEndings.FirstOrDefault(e => e.endingType == Endings.Good);
             }
             
             if (plotState.IsBadEnding())
             {
-                return possibleEndings.FirstOrDefault(e => e.endingID.Contains("Bad") || e.endingID.Contains("Heretic"));
+                return possibleEndings.FirstOrDefault(e => e.endingType == Endings.Bad);
             }
 
             // Fallback to finding one that matches the threshold

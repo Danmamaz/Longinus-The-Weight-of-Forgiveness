@@ -6,7 +6,7 @@ namespace PlotBranching
     /// <summary>
     /// Listens to plot events and applies visual/audio changes to the world
     /// </summary>
-    public class ConsequenceExecutor : MonoBehaviour
+    public class ConsequenceSOExecutor : MonoBehaviour
     {
         [Header("Visual Settings")]
         public Material normalSkybox;
@@ -43,7 +43,7 @@ namespace PlotBranching
         /// </summary>
         private void OnWorldStateChanged(WorldStateType newState)
         {
-            Debug.Log($"ConsequenceExecutor: Applying world state '{newState}'");
+            Debug.Log($"ConsequenceSOExecutor: Applying world state '{newState}'");
 
             switch (newState)
             {

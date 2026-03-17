@@ -3,16 +3,16 @@ using UnityEngine.Events;
 
 namespace PlotBranching
 {
-    [CreateAssetMenu(fileName = "New Consequence", menuName = "Plot System/Consequence")]
-    public class Consequence : ScriptableObject
+    [CreateAssetMenu(fileName = "New ConsequenceSO", menuName = "Plot System/ConsequenceSO")]
+    public class ConsequenceSO : ScriptableObject
     {
-        [Header("Consequence Identity")]
-        public string consequenceID;
+        [Header("ConsequenceSO Identity")]
+        public string ConsequenceID;
         [TextArea(2, 4)]
         public string description;
 
         [Header("Type and Values")]
-        public ConsequenceType type;
+        public Consequence type;
 
         [Header("Karma")]
         public int karmaChange = 0;

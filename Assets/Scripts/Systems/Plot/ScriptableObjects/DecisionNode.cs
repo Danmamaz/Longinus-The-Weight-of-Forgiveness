@@ -22,6 +22,8 @@ namespace PlotBranching
         public string choiceAText = "Spare / Help";
         [TextArea(2, 4)]
         public string choiceADescription;
+
+        [SerializeReference]
         public List<Consequence> choiceAConsequences = new List<Consequence>();
 
         [Header("Choice B (Bad/Cruelty)")]

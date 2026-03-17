@@ -32,19 +32,6 @@ namespace PlotBranching
         LessOrEqual
     }
 
-    public enum ConsequenceType
-    {
-        KarmaChange,
-        StatModifier,
-        BuffAdd,
-        BuffRemove,
-        WorldStateChange,
-        UnlockBoss,
-        NPCAttitudeChange,
-        InventoryModify,
-        OpenPath
-    }
-
     public enum WorldStateType
     {
         Normal,
@@ -64,5 +51,18 @@ namespace PlotBranching
         HubNPCRequest,
         BossDefeat,
         WorldEvent
+    }
+
+    public enum Endings
+    {
+        Good,
+        Neutral,
+        Bad
+    }
+
+    [System.Serializable]
+    public abstract class Consequence
+    {
+        public abstract void Apply(PlotManager context);
     }
 }

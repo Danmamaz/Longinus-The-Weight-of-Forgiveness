@@ -27,5 +27,7 @@ namespace PlotBranching
 
         [Header("Callbacks")]
         public UnityEvent onEndingTriggered;
+
+        public Endings endingType;
     }
 }

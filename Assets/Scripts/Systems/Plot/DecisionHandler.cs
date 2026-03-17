@@ -78,8 +78,6 @@ namespace PlotBranching
                 decisionPanel.SetActive(true);
             }
 
-            // Pause game if needed
-            Time.timeScale = 0f;
         }
 
         /// <summary>
@@ -104,8 +102,6 @@ namespace PlotBranching
                 decisionPanel.SetActive(false);
             }
 
-            // Resume game
-            Time.timeScale = 1f;
 
             currentDecision = null;
         }
