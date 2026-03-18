@@ -9,9 +9,16 @@ public class UIManager : MonoBehaviour
     [SerializeField] private InteractionSystem interactionSystem;
     
     [Header("UI References")]
+    [Header("Pause References")]
+    [SerializeField] private GameObject pauseMenu;
+    [Header("Player Stats")]
     [SerializeField] private TMP_Text healthText; 
     [SerializeField] private TMP_Text staminaText;
+    [Header("Interactables")]
     [SerializeField] private TMP_Text interactableText;
+
+
+    private bool isPaused = false;
 
     private void Awake()
     {
@@ -20,6 +27,8 @@ public class UIManager : MonoBehaviour
         interactionSystem.onInteractibleEnter.AddListener(AddInteractableToList);
         interactionSystem.onInteractibleLeave.AddListener(RemoveInteractableFromList);
         
+        pauseMenu.SetActive(isPaused);
+
     }
 
     private void ChangeHealthUI(float currentHealth)
@@ -55,5 +64,14 @@ public class UIManager : MonoBehaviour
         }
         
         interactableText.text = $"Interactable: {textToShow}";
+    }
+
+    public void TogglePauseMenu()
+    {
+        isPaused = !isPaused;
+
+        pauseMenu.SetActive(isPaused);
+
+        Time.timeScale = isPaused ? 0 : 1;
     }
 }

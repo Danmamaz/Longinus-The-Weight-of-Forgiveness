@@ -13,6 +13,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private InputActionReference lightAttackRef;
     [SerializeField] private InputActionReference heavyAttackRef;
     [SerializeField] private InputActionReference interactActionRef;
+    [SerializeField] private InputActionReference pauseActionRef;
 
     [Header("Stats")]
     public float MoveSpeed = 6f;
@@ -20,6 +21,9 @@ public class PlayerController : MonoBehaviour
     public float RollDuration = 0.8f;
     public float RollDistanceMult = 15f;
     public AnimationCurve RollSpeedCurve = new AnimationCurve(new Keyframe(0, 1), new Keyframe(1, 3.5f));
+
+    [Header("UI")]
+    [SerializeField] private UIManager uiManager;
 
     public Animator Animator { get; private set; }
     public PlayerCombatManager CombatManager { get; private set; }
@@ -93,6 +97,7 @@ public class PlayerController : MonoBehaviour
         lightAttackRef.action.performed += OnLightAttackPerformed;
         heavyAttackRef.action.performed += OnHeavyAttackPerformed;
         interactActionRef.action.performed += OnInteractPerformed;
+        pauseActionRef.action.performed += OnPausePerformed;
     }
 
     private void OnDisable()
@@ -103,6 +108,7 @@ public class PlayerController : MonoBehaviour
         lightAttackRef.action.performed -= OnLightAttackPerformed;
         heavyAttackRef.action.performed -= OnHeavyAttackPerformed;
         interactActionRef.action.performed -= OnInteractPerformed;
+        pauseActionRef.action.performed -= OnPausePerformed;
 
         SetInputActionsState(false);
     }
@@ -116,6 +122,7 @@ public class PlayerController : MonoBehaviour
             lightAttackRef.action.Enable();
             heavyAttackRef.action.Enable();
             interactActionRef.action.Enable();
+            pauseActionRef.action.Enable();
         }
         else
         {
@@ -124,6 +131,7 @@ public class PlayerController : MonoBehaviour
             lightAttackRef.action.Disable();
             heavyAttackRef.action.Disable();
             interactActionRef.action.Disable();
+            pauseActionRef.action.Disable();
         }
     }
 
@@ -150,6 +158,12 @@ public class PlayerController : MonoBehaviour
         {
             _stateMachine.ChangeState(InteractState);
         }
+    }
+
+    private void OnPausePerformed(InputAction.CallbackContext context)
+    {
+    
+        uiManager.TogglePauseMenu();
     }
 
 }
