@@ -2,6 +2,7 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
 {
     Properties
     {
+        _UnscaledTime ("Unscaled Time", Float) = 0
         [HideInInspector] _MainTex ("Texture (unused)", 2D) = "white" {}
 
         _Color           ("Background Color", Color)  = (0.02, 0.02, 0.05, 1)
@@ -12,7 +13,6 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
         _FadeRange       ("Fade Out Distance", Range(0.01, 1.0)) = 0.1
         _GlowSpread      ("Glow Spread", Range(5.0, 30.0)) = 15.0
         
-        // НОВА ВЛАСТИВІСТЬ: Розкид кутів. 0 = тільки вправо, 1 = сильний розліт.
         _AngleSpread     ("Angle Spread", Range(0.0, 1.0)) = 0.4
 
         // UI Masking parameters
@@ -83,6 +83,7 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
             float     _GlowSpread;
             float     _AngleSpread;
             float4    _ClipRect;
+            float _UnscaledTime;
 
             float hash21(float2 p)
             {
@@ -96,43 +97,30 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
             {
                 float2 st = uv * density;
                 
-                // Рандомізація властивостей на основі початкового (замороженого) ID сітки
                 float2 rawId = floor(uv * density);
                 float random = hash21(rawId);
                 float flicker = sin(time * (3.0 + random * 5.0) + random * 100.0) * 0.4 + 0.6;
-                float spawnMask = smoothstep(0.3, 0.8, random); // Повернено оригінальну високу густоту
+                float spawnMask = smoothstep(0.3, 0.8, random);
 
-                // --- НОВА ВЕКТОРНА ЛОГІКА ---
-                // Кожна "клітинка" отримує унікальний випадковий кут в межах розкиду.
-                // cos(angle) завжди додатній (0.0..1.0) для SATISFYING CONSTRAINT: "move right"
-                // sin(angle) (вгору або вниз) може бути будь-яким в межах кута.
-                float angle = (random - 0.5) * 2.0 * angleSpread; // від -angleSpread до +angleSpread
+                float angle = (random - 0.5) * 2.0 * angleSpread;
                 
                 float2 moveDir = float2(cos(angle), sin(angle));
-                float speedVar = 0.5 + random * 1.5; // Individual speed for organic feel
-
-                // Замість зсуву *всього* простору, ми анімуємо координату *всередині* клітинки.
-                // `f` тепер Wraps: frac(f + offset)
+                float speedVar = 0.5 + random * 1.5;
                 
                 float2 startOffset = float2(hash21(rawId + 1.0), hash21(rawId + 2.0)) - 0.5;
                 float t = time * speed * speedVar;
                 
-                // Animated position wrapping in cell space
                 float2 currentPos = frac(startOffset + moveDir * t) - 0.5;
 
-                // f = frac(st) - 0.5; // Базова внутрішня координата
                 float2 cellUV = frac(st) - 0.5;
                 float d = length(cellUV - currentPos);
 
                 float core = smoothstep(0.06, 0.0, d);
                 float glow = exp(-d * _GlowSpread) * 0.5;
 
-                // --- Органічний хвіст ---
-                // Точка зникнення зсувається на основі випадкового значення
                 float personalFadeEnd = fadeRange * (0.7 + 0.6 * hash21(rawId + 3.0));
                 float personalFadeStart = personalFadeEnd * 0.5;
                 
-                // Плавне зникнення кожної окремої частинки
                 float tailFade = 1.0 - smoothstep(personalFadeStart, personalFadeEnd, uv.x);
                 // Плавна поява зліва
                 float headFade = smoothstep(0.0, 0.02, uv.x);
@@ -158,10 +146,9 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
                 if (!UnityGet2DClipping(i.worldPos.xy, _ClipRect)) discard;
 
                 float2 uv = i.uv;
-                float time = _Time.y;
+                float time = _UnscaledTime;
 
                 float c1, c2;
-                // Генерація шарів з новим алгоритмом та Angle Spread
                 float p1 = ParticleLayerVectorized(uv, _GridDensity, _Speed, time, _FadeRange, _AngleSpread, c1);
                 float p2 = ParticleLayerVectorized(uv + float2(0.33, 0.77), _GridDensity * 1.4, _Speed * 0.7, time + 10.0, _FadeRange, _AngleSpread, c2);
                 

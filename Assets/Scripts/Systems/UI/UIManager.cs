@@ -66,12 +66,22 @@ public class UIManager : MonoBehaviour
         interactableText.text = $"Interactable: {textToShow}";
     }
 
-    public void TogglePauseMenu()
+    public bool TogglePauseMenu()
     {
+        if (pauseMenu == null) return false;
         isPaused = !isPaused;
 
         pauseMenu.SetActive(isPaused);
 
         Time.timeScale = isPaused ? 0 : 1;
+
+        return isPaused;
+    }
+
+    public void ResumeGameButton()
+    {
+        TogglePauseMenu();
+
+
     }
 }

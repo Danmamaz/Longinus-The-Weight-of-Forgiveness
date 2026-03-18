@@ -29,21 +29,25 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AngleSpread: 1
     - _ColorMask: 15
     - _CoreSize: 0.002
-    - _FadeRange: 0.1
+    - _FadeRange: 0.48
     - _FlickerSpeed: 3.5
     - _GlowSize: 0.018
+    - _GlowSpread: 15
+    - _GridDensity: 38
     - _ParticleDensity: 130
     - _ParticleSize: 0.007
-    - _Speed: 0.35
+    - _Speed: 0.15
     - _Stencil: 0
     - _StencilComp: 8
     - _StencilOp: 0
     - _StencilReadMask: 255
     - _StencilWriteMask: 255
+    - _UnscaledTime: 22.129004
     m_Colors:
-    - _Color: {r: 0, g: 0, b: 0, a: 1}
+    - _Color: {r: 0, g: 0, b: 0, a: 0.3764706}
     - _CoreBrightness: {r: 2.5, g: 3, b: 4, a: 1}
     - _ParticleColor: {r: 0.14999998, g: 0.54999995, b: 1, a: 1}
   m_BuildTextureStacks: []

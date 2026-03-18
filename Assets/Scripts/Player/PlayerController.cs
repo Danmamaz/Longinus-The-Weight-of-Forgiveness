@@ -122,7 +122,6 @@ public class PlayerController : MonoBehaviour
             lightAttackRef.action.Enable();
             heavyAttackRef.action.Enable();
             interactActionRef.action.Enable();
-            pauseActionRef.action.Enable();
         }
         else
         {
@@ -131,7 +130,6 @@ public class PlayerController : MonoBehaviour
             lightAttackRef.action.Disable();
             heavyAttackRef.action.Disable();
             interactActionRef.action.Disable();
-            pauseActionRef.action.Disable();
         }
     }
 
@@ -162,8 +160,9 @@ public class PlayerController : MonoBehaviour
 
     private void OnPausePerformed(InputAction.CallbackContext context)
     {
-    
-        uiManager.TogglePauseMenu();
+        bool isPaused = uiManager.TogglePauseMenu();
+
+        SetInputActionsState(!isPaused);
     }
 
 }
