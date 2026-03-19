@@ -13,6 +13,7 @@ namespace Enemy.BaseEnemy
         private Transform _currentTarget;
         private bool _rotationLocked;
 
+
 #region Unity Lifecycle
 
         private void Awake()

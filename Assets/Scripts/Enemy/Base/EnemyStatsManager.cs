@@ -13,6 +13,7 @@ namespace Enemy.BaseEnemy
         [SerializeField] private float poiseRegenRate = 10f;
         [SerializeField] private float poiseRegenDelay = 2f;
 
+        public bool spareable;
         public float CurrentHealth { get; private set; }
         public float MaxHealth => maxHealth;
         public float CurrentPoise { get; private set; }
@@ -71,11 +72,18 @@ namespace Enemy.BaseEnemy
         private void Die()
         {
             if (_isDead) return;
-            
-            _isDead = true;
             CurrentHealth = 0;
-            
-            OnDeath?.Invoke();
-        }
+
+            if (spareable)
+            {
+                // додати логіку
+            }
+            else
+            {
+                _isDead = true;
+                
+                OnDeath?.Invoke();
+            }
+        }   
     }
 }

@@ -35,8 +35,8 @@ Material:
     - _FadeRange: 0.48
     - _FlickerSpeed: 3.5
     - _GlowSize: 0.018
-    - _GlowSpread: 15
-    - _GridDensity: 38
+    - _GlowSpread: 5
+    - _GridDensity: 24
     - _ParticleDensity: 130
     - _ParticleSize: 0.007
     - _Speed: 0.15

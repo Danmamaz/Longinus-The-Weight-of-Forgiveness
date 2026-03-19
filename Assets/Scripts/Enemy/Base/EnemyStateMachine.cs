@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace Enemy.BaseEnemy
@@ -395,13 +396,40 @@ public class EnemyStaggeredState : EnemyBaseState
 
     public override void CheckSwitchState()
     {
-        if (_finished)
-            _stateMachine.ChangeState(_ctx.CombatStrafeState);
-    }
+        if (_finished && !_ctx.statsManager.spareable)
+        {
+            _stateMachine.ChangeState(_ctx.CombatStrafeState);                
+        }
+        else if (_finished && _ctx.statsManager.spareable && _ctx.statsManager.CurrentHealth == 0)
+        {
+            _stateMachine.ChangeState(_ctx.SparedState);
+        }
+    }   
 
     public void OnStaggerFinished() => _finished = true;
 }
 
+public class EnemySparedState : EnemyBaseState
+{
+
+    public EnemySparedState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+    
+    public override void EnterState()
+    {
+        _ctx.MovementManager.Stop();
+        // Запустити анімацію падіння на коліна
+    }
+
+    public override void CheckSwitchState() {}
+
+    public override void ExitState() {}
+
+    public override void FixedUpdateState() {}
+
+    public override void UpdateState() {}
+
+    
+}
 
 }
 

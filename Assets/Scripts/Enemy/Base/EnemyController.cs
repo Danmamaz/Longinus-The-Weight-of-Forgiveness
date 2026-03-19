@@ -25,7 +25,7 @@ namespace Enemy.BaseEnemy
 
         public Animator Animator { get; private set; }
         public EnemyMovementManager MovementManager { get; private set; }
-        private EnemyStatsManager _statsManager;
+        public EnemyStatsManager statsManager;
 
         private EnemyStateMachine _stateMachine;
         public EnemyIdleState IdleState { get; private set; }
@@ -35,6 +35,7 @@ namespace Enemy.BaseEnemy
         public EnemySearchState SearchState { get; private set; }
         public EnemyCombatStrafeState CombatStrafeState { get; private set; }
         public EnemyStaggeredState StaggeredState { get; private set; }
+        public EnemySparedState SparedState { get; private set; }
 
 
         public bool HasLastKnownPosition { get; private set; }
@@ -53,7 +54,7 @@ namespace Enemy.BaseEnemy
         {
             Animator = GetComponent<Animator>();
             MovementManager = GetComponent<EnemyMovementManager>();
-            _statsManager = GetComponent<EnemyStatsManager>();
+            statsManager = GetComponent<EnemyStatsManager>();
 
             _sqrDetectionRange = detectionRange * detectionRange;
             _sqrAttackRange = attackRange * attackRange;
@@ -73,8 +74,8 @@ namespace Enemy.BaseEnemy
             _isDead = false;
             ClearLastKnownPosition();
             
-            _statsManager.OnDeath += HandleDeath;
-            _statsManager.OnPoiseBreak += HandlePoiseBreak;
+            statsManager.OnDeath += HandleDeath;
+            statsManager.OnPoiseBreak += HandlePoiseBreak;
 
             if (playerTransform != null)
             {
@@ -88,8 +89,8 @@ namespace Enemy.BaseEnemy
 
         private void OnDisable()
         {
-            if (_statsManager != null)
-                _statsManager.OnDeath -= HandleDeath;
+            if (statsManager != null)
+                statsManager.OnDeath -= HandleDeath;
         }
 
         private void Update()
