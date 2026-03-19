@@ -113,7 +113,7 @@ public class PlayerController : MonoBehaviour
         SetInputActionsState(false);
     }
 
-    private void SetInputActionsState(bool state)
+    public void SetInputActionsState(bool state)
     {
         if(state)
         {
