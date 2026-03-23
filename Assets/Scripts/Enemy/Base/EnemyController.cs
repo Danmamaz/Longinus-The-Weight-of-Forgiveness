@@ -23,6 +23,9 @@ namespace Enemy.BaseEnemy
         public bool patrolingEnemy;
         public Transform[] patrolWaypoints;
 
+        [Header("Boss Choice")]
+        [SerializeField] public string decisionId = "boss_01"; // ID для PlotManager
+
         public Animator Animator { get; private set; }
         public EnemyMovementManager MovementManager { get; private set; }
         public EnemyStatsManager statsManager;
@@ -35,7 +38,8 @@ namespace Enemy.BaseEnemy
         public EnemySearchState SearchState { get; private set; }
         public EnemyCombatStrafeState CombatStrafeState { get; private set; }
         public EnemyStaggeredState StaggeredState { get; private set; }
-        public EnemySparedState SparedState { get; private set; }
+        public EnemyBossDeathChoiceState BossDeathChoiceState { get; private set; }
+
 
 
         public bool HasLastKnownPosition { get; private set; }
@@ -67,6 +71,7 @@ namespace Enemy.BaseEnemy
             SearchState = new EnemySearchState(this, _stateMachine);
             CombatStrafeState = new EnemyCombatStrafeState(this, _stateMachine);
             StaggeredState = new EnemyStaggeredState(this, _stateMachine);
+            BossDeathChoiceState = new EnemyBossDeathChoiceState(this, _stateMachine);
         }
 
         private void OnEnable()
@@ -76,6 +81,7 @@ namespace Enemy.BaseEnemy
             
             statsManager.OnDeath += HandleDeath;
             statsManager.OnPoiseBreak += HandlePoiseBreak;
+            statsManager.OnSpareableDeath += () => _stateMachine.ChangeState(BossDeathChoiceState);
 
             if (playerTransform != null)
             {
@@ -187,6 +193,12 @@ namespace Enemy.BaseEnemy
         {
             if (_isDead) return;
             _stateMachine.ChangeState(StaggeredState);
+        }
+
+        public void DisableColliders()
+        {
+            foreach (var col in GetComponentsInChildren<Collider>())
+                col.enabled = false;
         }
 
         

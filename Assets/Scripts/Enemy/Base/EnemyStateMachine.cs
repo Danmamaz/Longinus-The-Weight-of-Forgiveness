@@ -1,4 +1,5 @@
 using System.Collections;
+using PlotBranching;
 using UnityEngine;
 
 namespace Enemy.BaseEnemy
@@ -402,33 +403,81 @@ public class EnemyStaggeredState : EnemyBaseState
         }
         else if (_finished && _ctx.statsManager.spareable && _ctx.statsManager.CurrentHealth == 0)
         {
-            _stateMachine.ChangeState(_ctx.SparedState);
+            // _stateMachine.ChangeState(_ctx.SparedState);
         }
     }   
 
     public void OnStaggerFinished() => _finished = true;
 }
 
-public class EnemySparedState : EnemyBaseState
+public class EnemyBossDeathChoiceState : EnemyBaseState
 {
+    private readonly int _animStaggerHash = Animator.StringToHash("Stagger");
 
-    public EnemySparedState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
-    
+    private float _timer;
+    private bool _choiceMade;
+
+    [Tooltip("Час у секундах, протягом якого гравець може вбити боса.")]
+    private const float MercyDuration = 5f;
+
+    public EnemyBossDeathChoiceState(EnemyController ctx, EnemyStateMachine stateMachine)
+        : base(ctx, stateMachine) { }
+
     public override void EnterState()
     {
+        _choiceMade = false;
+        _timer = 0f;
+
         _ctx.MovementManager.Stop();
-        // Запустити анімацію падіння на коліна
+        _ctx.Animator.Play(_animStaggerHash);
+
+        // Підписуємось: якщо гравець вдарить під час цього стану
+        _ctx.statsManager.OnChoicePhaseDamaged += OnPlayerHit;
     }
 
-    public override void CheckSwitchState() {}
+    public override void UpdateState()
+    {
+        if (_choiceMade) return;
 
-    public override void ExitState() {}
+        _timer += Time.deltaTime;
 
-    public override void FixedUpdateState() {}
+        if (_timer >= MercyDuration)
+            TriggerMercy(); // Вибір Б: таймер вийшов
+    }
 
-    public override void UpdateState() {}
+    public override void FixedUpdateState() { }
 
-    
+    public override void ExitState()
+    {
+        // Завжди відписуємось при виході
+        _ctx.statsManager.OnChoicePhaseDamaged -= OnPlayerHit;
+    }
+
+    public override void CheckSwitchState() { } // Переходи — всередині методів нижче
+
+    // --- Вибір А: Вбити (гравець вдарив) ---
+    private void OnPlayerHit()
+    {
+        if (_choiceMade) return;
+        _choiceMade = true;
+
+        _ctx.DisableColliders();              // колайдери вимикаємо тут
+        _ctx.statsManager.ExecuteFinalDeath(); // запускає OnDeath → стандартна смерть
+        // PlotManager.Instance.RegisterDecision(_ctx.decisionId, true);
+    }
+
+    // --- Вибір Б: Пощадити (таймер вийшов) ---
+    private void TriggerMercy()
+    {
+        if (_choiceMade) return;
+        _choiceMade = true;
+
+        // СПОЧАТКУ вимикаємо колайдери, щоб не отримати удар під час катсцени
+        _ctx.DisableColliders();
+
+        // PlotManager.Instance.RegisterDecision(_ctx.decisionId, false);
+        
+    }
 }
 
 }
