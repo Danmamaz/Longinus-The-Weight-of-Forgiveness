@@ -1,98 +1,115 @@
-using UnityEngine;
+using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
+using System.Linq;
+using UnityEngine;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
+    /// <summary>
+    /// Handles saving and loading of the plot state to and from the disk.
+    /// Utilizes XOR encryption and JSON serialization.
+    /// </summary>
     public static class SaveSystem
     {
+        #region Constants & Variables
+
+        private const bool USE_ENCRYPTION = true;
+        private const string ENCRYPTION_KEY = "Longinus_VerticalSlice_Key_2026"; 
+
         private static string SavePath => Path.Combine(Application.persistentDataPath, "plot_save.dat");
         private static string BackupPath => Path.Combine(Application.persistentDataPath, "plot_save.backup");
-        
-        // Set to true to enable basic XOR encryption (prevents casual registry edits)
-        private const bool USE_ENCRYPTION = true;
-        private const string ENCRYPTION_KEY = "YourGameSpecificKey_ChangeThis"; // Change per project!
 
+        #endregion
+
+        #region State/Core Logic
+
+        /// <summary>
+        /// Serializes and saves the current plot state to the persistent data path.
+        /// </summary>
+        /// <param name="state">The active plot state to save.</param>
         public static void SaveState(PlotState state)
         {
             if (state == null)
             {
-                Debug.LogError("SaveSystem: Cannot save null state!");
+                Debug.LogError("[SaveSystem] Cannot save a null PlotState!");
                 return;
             }
 
             try
             {
-                // Create backup of existing save before overwriting
                 if (File.Exists(SavePath))
                 {
                     File.Copy(SavePath, BackupPath, true);
                 }
 
-                string json = JsonUtility.ToJson(new PlotStateSaveData(state), false); // No pretty print for production
-                
+                PlotStateSaveData data = new PlotStateSaveData(state);
+                string json = JsonUtility.ToJson(data, false);
+
                 if (USE_ENCRYPTION)
                 {
-                    json = Encrypt(json);
+                    json = ProcessEncryption(json);
                 }
 
                 File.WriteAllText(SavePath, json);
-                Debug.Log($"SaveSystem: State saved to {SavePath}");
+                Debug.Log($"[SaveSystem] State successfully saved to {SavePath}");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                Debug.LogError($"SaveSystem: Failed to save - {e.Message}\n{e.StackTrace}");
+                Debug.LogError($"[SaveSystem] Failed to save state: {e.Message}");
             }
         }
 
-        public static bool LoadState(PlotState state)
+        /// <summary>
+        /// Loads the plot state from the persistent data path and overwrites the active state.
+        /// </summary>
+        /// <param name="state">The PlotState ScriptableObject to overwrite with loaded data.</param>
+        public static void LoadState(PlotState state)
         {
             if (state == null)
             {
-                Debug.LogError("SaveSystem: Cannot load into null state!");
-                return false;
+                Debug.LogError("[SaveSystem] Cannot load into a null PlotState!");
+                return;
             }
 
             if (!File.Exists(SavePath))
             {
-                Debug.Log("SaveSystem: No save file found.");
-                return false;
+                Debug.LogWarning("[SaveSystem] No save file found. Starting fresh.");
+                return;
             }
 
             try
             {
                 string json = File.ReadAllText(SavePath);
-                
+
                 if (USE_ENCRYPTION)
                 {
-                    json = Decrypt(json);
+                    json = ProcessEncryption(json);
                 }
 
-                PlotStateSaveData saveData = JsonUtility.FromJson<PlotStateSaveData>(json);
+                // Pragmatic Hack: We overwrite the SO directly. 
+                // Because our DTO fields perfectly match the SO's private [SerializeField] names, 
+                // JsonUtility injects the lists/karma seamlessly while ignoring design thresholds!
+                JsonUtility.FromJsonOverwrite(json, state);
                 
-                if (saveData == null)
-                {
-                    throw new System.Exception("Deserialization returned null - file may be corrupt");
-                }
-
-                saveData.ApplyTo(state);
-                Debug.Log("SaveSystem: State loaded successfully.");
-                return true;
+                Debug.Log("[SaveSystem] State successfully loaded.");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                Debug.LogError($"SaveSystem: Failed to load - {e.Message}. Attempting backup restore...");
-                return TryRestoreBackup(state);
+                Debug.LogError($"[SaveSystem] Failed to load state. Attempting to restore backup... Error: {e.Message}");
+                RestoreBackup(state);
             }
         }
 
-        private static bool TryRestoreBackup(PlotState state)
+        /// <summary>
+        /// Attempts to load the backup save file if the primary file is corrupted.
+        /// </summary>
+        private static void RestoreBackup(PlotState state)
         {
             if (!File.Exists(BackupPath))
             {
-                Debug.LogError("SaveSystem: No backup available.");
-                return false;
+                Debug.LogError("[SaveSystem] No backup file available to restore.");
+                return;
             }
 
             try
@@ -101,99 +118,65 @@ namespace PlotBranching
                 
                 if (USE_ENCRYPTION)
                 {
-                    json = Decrypt(json);
+                    json = ProcessEncryption(json);
                 }
 
-                PlotStateSaveData saveData = JsonUtility.FromJson<PlotStateSaveData>(json);
-                saveData.ApplyTo(state);
-                
-                // Restore backup to main save
-                File.Copy(BackupPath, SavePath, true);
-                
-                Debug.LogWarning("SaveSystem: Restored from backup successfully.");
-                return true;
+                JsonUtility.FromJsonOverwrite(json, state);
+                Debug.LogWarning("[SaveSystem] State successfully restored from backup.");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                Debug.LogError($"SaveSystem: Backup restore failed - {e.Message}");
-                return false;
+                Debug.LogError($"[SaveSystem] Critical Failure! Backup is also corrupted: {e.Message}");
             }
         }
 
-        public static void DeleteSave()
+        /// <summary>
+        /// Applies a simple XOR cipher to the string. Symmetrical for both encryption and decryption.
+        /// </summary>
+        private static string ProcessEncryption(string data)
         {
-            try
-            {
-                if (File.Exists(SavePath)) File.Delete(SavePath);
-                if (File.Exists(BackupPath)) File.Delete(BackupPath);
-                Debug.Log("SaveSystem: Save files deleted.");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"SaveSystem: Failed to delete saves - {e.Message}");
-            }
-        }
+            if (string.IsNullOrEmpty(data)) return data;
 
-        // Simple XOR encryption - not military grade, but stops casual tampering
-        private static string Encrypt(string text)
-        {
-            byte[] data = Encoding.UTF8.GetBytes(text);
-            byte[] key = Encoding.UTF8.GetBytes(ENCRYPTION_KEY);
-            
+            char[] result = new char[data.Length];
             for (int i = 0; i < data.Length; i++)
             {
-                data[i] ^= key[i % key.Length];
+                result[i] = (char)(data[i] ^ ENCRYPTION_KEY[i % ENCRYPTION_KEY.Length]);
             }
-            
-            return System.Convert.ToBase64String(data);
+            return new string(result);
         }
 
-        private static string Decrypt(string encryptedText)
-        {
-            byte[] data = System.Convert.FromBase64String(encryptedText);
-            byte[] key = Encoding.UTF8.GetBytes(ENCRYPTION_KEY);
-            
-            for (int i = 0; i < data.Length; i++)
-            {
-                data[i] ^= key[i % key.Length];
-            }
-            
-            return Encoding.UTF8.GetString(data);
-        }
+        #endregion
 
-        [System.Serializable]
-        public class PlotStateSaveData
+        #region Data Structures
+
+        /// <summary>
+        /// DTO tailored to mirror PlotState's internal serialized fields.
+        /// This allows JsonUtility.FromJsonOverwrite to map values directly into the ScriptableObject
+        /// without exposing private setters in the PlotState class itself.
+        /// </summary>
+        [Serializable]
+        private class PlotStateSaveData
         {
-            public int currentKarma;
-            public string[] madeDecisionIDs;
-            public string[] chosenOptions;
-            public int currentWorldState; // Serialize as int for safety
-            public string[] activeBuffIDs;
-            public string[] unlockedBossIDs;
-            public int saveVersion = 1; // For future migration support
-            public string[] openedPathIDs;
+            public int _currentKarma;
+            public WorldStateType _currentWorldState;
+            public List<string> _madeDecisionIDs;
+            public List<string> _chosenOptions;
+            public List<string> _openedPathIDs;
+            public List<string> _activeBuffIDs;
+            public List<string> _unlockedBossIDs;
 
             public PlotStateSaveData(PlotState state)
             {
-                currentKarma = state.currentKarma;
-                madeDecisionIDs = state.madeDecisionIDs.ToArray();
-                chosenOptions = state.chosenOptions.ToArray();
-                currentWorldState = (int)state.currentWorldState;
-                activeBuffIDs = state.activeBuffIDs.ToArray();
-                unlockedBossIDs = state.unlockedBossIDs.ToArray();
-                openedPathIDs = state.openedPathIDs.ToArray();
-            }
-
-            public void ApplyTo(PlotState state)
-            {
-                state.currentKarma = currentKarma;
-                state.madeDecisionIDs = new System.Collections.Generic.List<string>(madeDecisionIDs);
-                state.chosenOptions = new System.Collections.Generic.List<string>(chosenOptions);
-                state.currentWorldState = (WorldStateType)currentWorldState;
-                state.activeBuffIDs = new System.Collections.Generic.List<string>(activeBuffIDs);
-                state.unlockedBossIDs = new System.Collections.Generic.List<string>(unlockedBossIDs);
-                state.openedPathIDs = new System.Collections.Generic.List<string>(openedPathIDs);
+                _currentKarma = state.CurrentKarma;
+                _currentWorldState = state.CurrentWorldState;
+                _madeDecisionIDs = state.MadeDecisionIDs.ToList();
+                _chosenOptions = state.ChosenOptions.ToList();
+                _openedPathIDs = state.OpenedPathIDs.ToList();
+                _activeBuffIDs = state.ActiveBuffIDs.ToList();
+                _unlockedBossIDs = state.UnlockedBossIDs.ToList();
             }
         }
+
+        #endregion
     }
 }

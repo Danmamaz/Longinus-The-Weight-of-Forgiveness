@@ -1,24 +1,39 @@
-using System.Collections;
-using PlotBranching;
+using System;
 using UnityEngine;
+using Longinus.PlotSystem;
 
-namespace Enemy.BaseEnemy
+namespace Longinus.EnemySystem
 {
+    /// <summary>
+    /// Manages transitions and execution of enemy states.
+    /// </summary>
     public class EnemyStateMachine
     {
+        #region Properties
+        
         public EnemyBaseState CurrentState { get; private set; }
+        
+        #endregion
 
+        #region State/Core Logic
+
+        /// <summary>
+        /// Initializes the state machine with a starting state.
+        /// </summary>
         public void Initialize(EnemyBaseState startingState)
         {
             if (startingState == null)
             {
-                Debug.LogError("[CRITICAL] State Machine initialized with null state.");
+                Debug.LogError("[EnemyStateMachine] Initialized with a null state.");
                 return;
             }
             CurrentState = startingState;
             CurrentState.EnterState();
         }
 
+        /// <summary>
+        /// Exits the current state and enters the new provided state.
+        /// </summary>
         public void ChangeState(EnemyBaseState newState)
         {
             if (newState == null || CurrentState == newState) return;
@@ -28,6 +43,9 @@ namespace Enemy.BaseEnemy
             CurrentState.EnterState();
         }
 
+        /// <summary>
+        /// Executes the logic of the current state every frame.
+        /// </summary>
         public void Update()
         {
             if (CurrentState == null) return;
@@ -36,35 +54,60 @@ namespace Enemy.BaseEnemy
             CurrentState.CheckSwitchState();
         }
 
+        /// <summary>
+        /// Executes physics-related logic of the current state.
+        /// </summary>
         public void FixedUpdate()
         {
             CurrentState?.FixedUpdateState();
         }
+        
+        #endregion
     }
 
+    /// <summary>
+    /// Abstract base class for all enemy states.
+    /// </summary>
     public abstract class EnemyBaseState
     {
+        #region Protected Variables
+        
         protected readonly EnemyController _ctx;
         protected readonly EnemyStateMachine _stateMachine;
+        
+        #endregion
+
+        #region Initialization
 
         protected EnemyBaseState(EnemyController ctx, EnemyStateMachine stateMachine)
         {
             _ctx = ctx;
             _stateMachine = stateMachine;
         }
+        
+        #endregion
+
+        #region State/Core Logic
 
         public abstract void EnterState();
         public abstract void UpdateState();
         public abstract void FixedUpdateState();
         public abstract void ExitState();
         public abstract void CheckSwitchState();
+        
+        #endregion
     }
 
+    /// <summary>
+    /// Default state where the enemy is stationary and scanning for the player.
+    /// </summary>
     public class EnemyIdleState : EnemyBaseState
     {
         private readonly int _animIdleHash = Animator.StringToHash("Idle");
 
         public EnemyIdleState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
 
         public override void EnterState()
         {
@@ -86,18 +129,25 @@ namespace Enemy.BaseEnemy
             {
                 _stateMachine.ChangeState(_ctx.ChaseState);
             }
-            else if (_ctx.patrolingEnemy)
+            else if (_ctx.IsPatrollingEnemy) // Note: Requires exposing IsPatrollingEnemy in EnemyController
             {
                 _stateMachine.ChangeState(_ctx.PatrolState);
             }
         }
+        
+        #endregion
     }
 
+    /// <summary>
+    /// Aggressive pursuit state when the player is detected but out of attack range.
+    /// </summary>
     public class EnemyChaseState : EnemyBaseState
     {
         private readonly int _animChaseHash = Animator.StringToHash("Chase");
 
         public EnemyChaseState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
 
         public override void EnterState()
         {
@@ -119,7 +169,6 @@ namespace Enemy.BaseEnemy
 
         public override void CheckSwitchState()
         {
-
             if (_ctx.IsPlayerInAttackRange())
             {
                 _stateMachine.ChangeState(_ctx.CombatStrafeState);
@@ -129,88 +178,103 @@ namespace Enemy.BaseEnemy
                 _stateMachine.ChangeState(_ctx.SearchState);
             }
         }
+        
+        #endregion
     }
 
+    /// <summary>
+    /// Executes combat animations and manages rotation locking during active attack frames.
+    /// </summary>
     public class EnemyAttackState : EnemyBaseState
-{
-    public enum AttackPhase { WindUp, Active, Recovery }
-    public AttackPhase CurrentPhase { get; private set; }
-
-    private readonly int _animLightAttack = Animator.StringToHash("LightAttack");
-    private readonly int _animHeavyAttack = Animator.StringToHash("HeavyAttack");
-
-    private bool _attackFinished;
-
-    public EnemyAttackState(EnemyController ctx, EnemyStateMachine stateMachine)
-        : base(ctx, stateMachine) { }
-
-    public override void EnterState()
     {
-        _attackFinished = false;
-        CurrentPhase = AttackPhase.WindUp;
+        public enum AttackPhase { WindUp, Active, Recovery }
+        
+        #region Private Variables
+        
+        private readonly int _animLightAttack = Animator.StringToHash("LightAttack");
+        private readonly int _animHeavyAttack = Animator.StringToHash("HeavyAttack");
+        private bool _attackFinished;
+        
+        #endregion
 
-        _ctx.MovementManager.Stop();
+        public AttackPhase CurrentPhase { get; private set; }
 
-        // Обираємо атаку (поки що рандом, потім замінити на логіку)
-        bool heavy = UnityEngine.Random.value > 0.7f;
-        _ctx.Animator.Play(heavy ? _animHeavyAttack : _animLightAttack);
-    }
+        public EnemyAttackState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
 
-    public override void UpdateState()
-    {
-        // Wind-up: ворог повільно довертається до гравця
-        if (CurrentPhase == AttackPhase.WindUp)
+        #region State/Core Logic
+
+        public override void EnterState()
         {
-            _ctx.MovementManager.FaceTarget();
+            _attackFinished = false;
+            CurrentPhase = AttackPhase.WindUp;
+
+            _ctx.MovementManager.Stop();
+
+            // Simple randomization for now; can be extracted to a weight-based decision system later
+            bool isHeavyAttack = UnityEngine.Random.value > 0.7f;
+            _ctx.Animator.Play(isHeavyAttack ? _animHeavyAttack : _animLightAttack);
         }
-        // Active & Recovery: rotation locked, нічого не робимо
-    }
 
-    public override void FixedUpdateState() { }
-
-    public override void ExitState()
-    {
-        _ctx.MovementManager.UnlockRotation();
-    }
-
-    public override void CheckSwitchState()
-    {
-        if (!_attackFinished) return;
-
-        if (_ctx.IsPlayerInAttackRange())
+        public override void UpdateState()
         {
-            // Можна переходити в CombatStrafing замість повторної атаки
-            _stateMachine.ChangeState(_ctx.CombatStrafeState);
+            if (CurrentPhase == AttackPhase.WindUp)
+            {
+                _ctx.MovementManager.FaceTarget();
+            }
         }
-        else if (_ctx.IsPlayerInDetectionRange())
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
         {
-            _stateMachine.ChangeState(_ctx.ChaseState);
+            _ctx.MovementManager.UnlockRotation();
         }
-        else
+
+        public override void CheckSwitchState()
         {
-            _stateMachine.ChangeState(_ctx.SearchState);
+            if (!_attackFinished) return;
+
+            if (_ctx.IsPlayerInAttackRange())
+            {
+                _stateMachine.ChangeState(_ctx.CombatStrafeState);
+            }
+            else if (_ctx.IsPlayerInDetectionRange())
+            {
+                _stateMachine.ChangeState(_ctx.ChaseState);
+            }
+            else
+            {
+                _stateMachine.ChangeState(_ctx.SearchState);
+            }
         }
+        
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        public void OnWindUpEnd()
+        {
+            CurrentPhase = AttackPhase.Active;
+            _ctx.MovementManager.LockRotation();
+        }
+
+        public void OnActiveEnd()
+        {
+            CurrentPhase = AttackPhase.Recovery;
+        }
+
+        public void OnAttackFinished()
+        {
+            _attackFinished = true;
+            _ctx.MovementManager.UnlockRotation();
+        }
+        
+        #endregion
     }
 
-    // --- Викликаються через Animation Events ---
-    public void OnWindUpEnd()
-    {
-        CurrentPhase = AttackPhase.Active;
-        _ctx.MovementManager.LockRotation();
-    }
-
-    public void OnActiveEnd()
-    {
-        CurrentPhase = AttackPhase.Recovery;
-    }
-
-    public void OnAttackFinished()
-    {
-        _attackFinished = true;
-        _ctx.MovementManager.UnlockRotation();
-    }
-}
-
+    /// <summary>
+    /// Cycles through predefined waypoints when idle.
+    /// </summary>
     public class EnemyPatrolState : EnemyBaseState
     {
         private readonly int _animPatrolHash = Animator.StringToHash("Patrol");
@@ -221,20 +285,22 @@ namespace Enemy.BaseEnemy
             _currentWaypointIndex = 0;
         }
 
+        #region State/Core Logic
+
         public override void EnterState()
         {
             _ctx.Animator.Play(_animPatrolHash);
-            MovetoNextWaypoint();
+            MoveToNextWaypoint();
         }
 
         public override void UpdateState()
         {
-            if (_ctx.patrolWaypoints == null || _ctx.patrolWaypoints.Length == 0) return;
+            if (_ctx.PatrolWaypoints == null || _ctx.PatrolWaypoints.Length == 0) return;
 
             if (_ctx.MovementManager.ReachedDestination())
             {
-                _currentWaypointIndex = (_currentWaypointIndex + 1) % _ctx.patrolWaypoints.Length;
-                MovetoNextWaypoint();
+                _currentWaypointIndex = (_currentWaypointIndex + 1) % _ctx.PatrolWaypoints.Length;
+                MoveToNextWaypoint();
             }
         }
 
@@ -257,18 +323,25 @@ namespace Enemy.BaseEnemy
             }
         }
 
-        private void MovetoNextWaypoint()
+        private void MoveToNextWaypoint()
         {
-            if (_ctx.patrolWaypoints != null && _ctx.patrolWaypoints.Length > 0)
+            if (_ctx.PatrolWaypoints != null && _ctx.PatrolWaypoints.Length > 0)
             {
-                _ctx.MovementManager.MoveTo(_ctx.patrolWaypoints[_currentWaypointIndex]);
+                _ctx.MovementManager.MoveTo(_ctx.PatrolWaypoints[_currentWaypointIndex]);
             }
         }
+        
+        #endregion
     }
 
+    /// <summary>
+    /// Investigates the last known position of the player before returning to idle/patrol.
+    /// </summary>
     public class EnemySearchState : EnemyBaseState
     {
         public EnemySearchState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
 
         public override void EnterState()
         {
@@ -303,7 +376,7 @@ namespace Enemy.BaseEnemy
 
         private void TransitionToIdle()
         {
-            if (_ctx.patrolingEnemy && _ctx.patrolWaypoints != null && _ctx.patrolWaypoints.Length > 0)
+            if (_ctx.IsPatrollingEnemy && _ctx.PatrolWaypoints != null && _ctx.PatrolWaypoints.Length > 0)
             {
                 _stateMachine.ChangeState(_ctx.PatrolState);
             }
@@ -312,173 +385,250 @@ namespace Enemy.BaseEnemy
                 _stateMachine.ChangeState(_ctx.IdleState);
             }
         }
-    }
-    public class EnemyCombatStrafeState : EnemyBaseState
-{
-    private readonly int _animStrafeHash = Animator.StringToHash("CombatStrafe");
-
-    private float _strafeTimer;
-    private float _strafeDuration;
-    private float _strafeDirection; // -1 або +1
-
-    public EnemyCombatStrafeState(EnemyController ctx, EnemyStateMachine stateMachine)
-        : base(ctx, stateMachine) { }
-
-    public override void EnterState()
-    {
-        _ctx.Animator.Play(_animStrafeHash);
-        _ctx.MovementManager.Stop();
-
-        _strafeDuration = UnityEngine.Random.Range(0.8f, 2.0f);
-        _strafeTimer = 0f;
-        _strafeDirection = UnityEngine.Random.value > 0.5f ? 1f : -1f;
-    }
-
-    public override void UpdateState()
-    {
-        _strafeTimer += Time.deltaTime;
-
-        // Повертаємось обличчям до гравця
-        _ctx.MovementManager.FaceTarget();
-
-        // Рух вбік відносно напрямку на гравця
-        Vector3 toPlayer = (_ctx.PlayerTransform.position - _ctx.transform.position).normalized;
-        Vector3 strafeDir = Vector3.Cross(Vector3.up, toPlayer) * _strafeDirection;
-        Vector3 targetPos = _ctx.transform.position + strafeDir * 2f;
-
-        _ctx.MovementManager.MoveToPosition(targetPos);
-    }
-
-    public override void FixedUpdateState() { }
-
-    public override void ExitState()
-    {
-        _ctx.MovementManager.Stop();
-    }
-
-    public override void CheckSwitchState()
-    {
-        if (!_ctx.IsPlayerInDetectionRange())
-        {
-            _stateMachine.ChangeState(_ctx.SearchState);
-            return;
-        }
-
-        if (_strafeTimer >= _strafeDuration && _ctx.IsPlayerInAttackRange())
-        {
-            _stateMachine.ChangeState(_ctx.AttackState);
-        }
-        else if (!_ctx.IsPlayerInAttackRange())
-        {
-            _stateMachine.ChangeState(_ctx.ChaseState);
-        }
-    }
-}
-
-public class EnemyStaggeredState : EnemyBaseState
-{
-    private readonly int _animStagger = Animator.StringToHash("Stagger");
-    private bool _finished;
-
-    public EnemyStaggeredState(EnemyController ctx, EnemyStateMachine stateMachine)
-        : base(ctx, stateMachine) { }
-
-    public override void EnterState()
-    {
-        _finished = false;
-        _ctx.MovementManager.Stop();
-        _ctx.MovementManager.UnlockRotation();
-        _ctx.Animator.Play(_animStagger);
-    }
-
-    public override void UpdateState() { }
-    public override void FixedUpdateState() { }
-    public override void ExitState() { }
-
-    public override void CheckSwitchState()
-    {
-        if (_finished && !_ctx.statsManager.spareable)
-        {
-            _stateMachine.ChangeState(_ctx.CombatStrafeState);                
-        }
-        else if (_finished && _ctx.statsManager.spareable && _ctx.statsManager.CurrentHealth == 0)
-        {
-            // _stateMachine.ChangeState(_ctx.SparedState);
-        }
-    }   
-
-    public void OnStaggerFinished() => _finished = true;
-}
-
-public class EnemyBossDeathChoiceState : EnemyBaseState
-{
-    private readonly int _animStaggerHash = Animator.StringToHash("Stagger");
-
-    private float _timer;
-    private bool _choiceMade;
-
-    [Tooltip("Час у секундах, протягом якого гравець може вбити боса.")]
-    private const float MercyDuration = 5f;
-
-    public EnemyBossDeathChoiceState(EnemyController ctx, EnemyStateMachine stateMachine)
-        : base(ctx, stateMachine) { }
-
-    public override void EnterState()
-    {
-        _choiceMade = false;
-        _timer = 0f;
-
-        _ctx.MovementManager.Stop();
-        _ctx.Animator.Play(_animStaggerHash);
-
-        // Підписуємось: якщо гравець вдарить під час цього стану
-        _ctx.statsManager.OnChoicePhaseDamaged += OnPlayerHit;
-    }
-
-    public override void UpdateState()
-    {
-        if (_choiceMade) return;
-
-        _timer += Time.deltaTime;
-
-        if (_timer >= MercyDuration)
-            TriggerMercy(); // Вибір Б: таймер вийшов
-    }
-
-    public override void FixedUpdateState() { }
-
-    public override void ExitState()
-    {
-        // Завжди відписуємось при виході
-        _ctx.statsManager.OnChoicePhaseDamaged -= OnPlayerHit;
-    }
-
-    public override void CheckSwitchState() { } // Переходи — всередині методів нижче
-
-    // --- Вибір А: Вбити (гравець вдарив) ---
-    private void OnPlayerHit()
-    {
-        if (_choiceMade) return;
-        _choiceMade = true;
-
-        _ctx.DisableColliders();              // колайдери вимикаємо тут
-        _ctx.statsManager.ExecuteFinalDeath(); // запускає OnDeath → стандартна смерть
-        // PlotManager.Instance.RegisterDecision(_ctx.decisionId, true);
-    }
-
-    // --- Вибір Б: Пощадити (таймер вийшов) ---
-    private void TriggerMercy()
-    {
-        if (_choiceMade) return;
-        _choiceMade = true;
-
-        // СПОЧАТКУ вимикаємо колайдери, щоб не отримати удар під час катсцени
-        _ctx.DisableColliders();
-
-        // PlotManager.Instance.RegisterDecision(_ctx.decisionId, false);
         
+        #endregion
+    }
+
+    /// <summary>
+    /// Tactical repositioning state to maintain distance and orbit the player during combat.
+    /// </summary>
+    public class EnemyCombatStrafeState : EnemyBaseState
+    {
+        #region Private Variables
+        
+        private readonly int _animStrafeHash = Animator.StringToHash("CombatStrafe");
+        private float _strafeTimer;
+        private float _strafeDuration;
+        private float _strafeDirection;
+        
+        #endregion
+
+        public EnemyCombatStrafeState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _ctx.Animator.Play(_animStrafeHash);
+            _ctx.MovementManager.Stop();
+
+            _strafeDuration = UnityEngine.Random.Range(0.8f, 2.0f);
+            _strafeTimer = 0f;
+            _strafeDirection = UnityEngine.Random.value > 0.5f ? 1f : -1f;
+        }
+
+        public override void UpdateState()
+        {
+            _strafeTimer += Time.deltaTime;
+
+            _ctx.MovementManager.FaceTarget();
+
+            Vector3 toPlayer = (_ctx.PlayerTransform.position - _ctx.transform.position).normalized;
+            Vector3 strafeDir = Vector3.Cross(Vector3.up, toPlayer) * _strafeDirection;
+            Vector3 targetPos = _ctx.transform.position + strafeDir * 2f;
+
+            _ctx.MovementManager.MoveToPosition(targetPos);
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
+        {
+            _ctx.MovementManager.Stop();
+        }
+
+        public override void CheckSwitchState()
+        {
+            if (!_ctx.IsPlayerInDetectionRange())
+            {
+                _stateMachine.ChangeState(_ctx.SearchState);
+                return;
+            }
+
+            if (_strafeTimer >= _strafeDuration && _ctx.IsPlayerInAttackRange())
+            {
+                _stateMachine.ChangeState(_ctx.AttackState);
+            }
+            else if (!_ctx.IsPlayerInAttackRange())
+            {
+                _stateMachine.ChangeState(_ctx.ChaseState);
+            }
+        }
+        
+        #endregion
+    }
+
+    /// <summary>
+    /// Interrupts current actions when poise is broken.
+    /// </summary>
+    public class EnemyStaggeredState : EnemyBaseState
+    {
+        private readonly int _animStagger = Animator.StringToHash("Stagger");
+        private bool _isFinished;
+
+        public EnemyStaggeredState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _isFinished = false;
+            _ctx.MovementManager.Stop();
+            _ctx.MovementManager.UnlockRotation();
+            _ctx.Animator.Play(_animStagger);
+        }
+
+        public override void UpdateState() { }
+        public override void FixedUpdateState() { }
+        public override void ExitState() { }
+
+        public override void CheckSwitchState()
+        {
+            if (_isFinished && !_ctx.StatsManager.IsSpareable)
+            {
+                _stateMachine.ChangeState(_ctx.CombatStrafeState);                
+            }
+            // Add spared transition here when implemented in StatsManager
+        }   
+
+        #endregion
+        
+        #region Event Listeners/Callbacks
+        
+        public void OnStaggerFinished() => _isFinished = true;
+        
+        #endregion
+    }
+
+    /// <summary>
+    /// Handles the interactive sequence where the player can choose to kill or spare the boss.
+    /// </summary>
+    public class EnemyBossDeathChoiceState : EnemyBaseState
+    {
+        #region Constants & Private Variables
+        
+        private readonly int _animStaggerHash = Animator.StringToHash("Stagger");
+        private const float MERCY_DURATION = 5f;
+        
+        private float _timer;
+        private bool _choiceMade;
+        
+        #endregion
+
+        public EnemyBossDeathChoiceState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _choiceMade = false;
+            _timer = 0f;
+
+            _ctx.MovementManager.Stop();
+            _ctx.Animator.Play(_animStaggerHash);
+
+            _ctx.StatsManager.OnChoicePhaseDamaged += OnPlayerHit;
+        }
+
+        public override void UpdateState()
+        {
+            if (_choiceMade) return;
+
+            _timer += Time.deltaTime;
+
+            if (_timer >= MERCY_DURATION)
+            {
+                TriggerMercy();
+            }
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
+        {
+            _ctx.StatsManager.OnChoicePhaseDamaged -= OnPlayerHit;
+        }
+
+        public override void CheckSwitchState() { }
+        
+        #endregion
+        
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Executes the kill sequence if the player attacks the boss during the choice phase.
+        /// </summary>
+        private void OnPlayerHit()
+        {
+            if (_choiceMade) return;
+            _choiceMade = true;
+
+            _ctx.DisableColliders();
+            
+            // Defensively invoking PlotManager to avoid NullReference exceptions
+            if (PlotManager.Instance != null && !string.IsNullOrEmpty(_ctx.DecisionId))
+            {
+                var decisionNode = PlotManager.Instance.GetNodeByID(_ctx.DecisionId);
+                
+                if (decisionNode != null)
+                {
+                    PlotManager.Instance.RegisterDecision(decisionNode, true);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"DecisionNode з ID {_ctx.DecisionId} не знайдено!");
+                }
+            }
+
+            _ctx.StatsManager.ExecuteFinalDeath(); 
+        }
+
+        /// <summary>
+        /// Executes the spare sequence if the player waits out the timer.
+        /// </summary>
+        private void TriggerMercy()
+        {
+            if (_choiceMade) return;
+            _choiceMade = true;
+
+            _ctx.DisableColliders();
+
+            if (PlotManager.Instance != null && !string.IsNullOrEmpty(_ctx.DecisionId))
+            {
+                var decisionNode = PlotManager.Instance.GetNodeByID(_ctx.DecisionId);
+                
+                if (decisionNode != null)
+                {
+                    PlotManager.Instance.RegisterDecision(decisionNode, false);
+                }
+            }
+            
+            // Hard-stop the state machine to prevent any lingering logic
+            _stateMachine.ChangeState(_ctx.DeadState);
+        }
+        
+        #endregion
+    }
+
+    /// <summary>
+    /// Inert state that halts all logic permanently. Used when the enemy is killed or spared.
+    /// </summary>
+    public class EnemyDeadState : EnemyBaseState
+    {
+        public EnemyDeadState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _ctx.MovementManager.Stop();
+        }
+
+        public override void UpdateState() { }
+        public override void FixedUpdateState() { }
+        public override void ExitState() { }
+        public override void CheckSwitchState() { }
+
+        #endregion
     }
 }
-
-}
-

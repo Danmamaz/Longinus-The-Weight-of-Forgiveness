@@ -1,50 +1,141 @@
 using UnityEngine;
-using System.Collections.Generic;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
     /// <summary>
-    /// Listens to plot events and applies visual/audio changes to the world
+    /// Listens to plot events and applies visual and audio changes to the world state.
     /// </summary>
-    public class ConsequenceSOExecutor : MonoBehaviour
+    [RequireComponent(typeof(AudioSource))]
+    public class ConsequenceExecutor : MonoBehaviour
     {
-        [Header("Visual Settings")]
-        public Material normalSkybox;
-        public Material gloomySkybox;
-        public Material hopefulSkybox;
-        public Color normalAmbientLight = Color.white;
-        public Color gloomyAmbientLight = new Color(0.3f, 0.3f, 0.4f);
-        public Color hopefulAmbientLight = new Color(1f, 0.95f, 0.8f);
+        #region Constants & Inspector Variables
 
-        [Header("Audio")]
-        public AudioClip normalMusic;
-        public AudioClip gloomyMusic;
-        public AudioClip hopefulMusic;
-        private AudioSource audioSource;
+        [Header("Visual Settings - Normal")]
+        [SerializeField, Tooltip("Skybox material used during the Normal world state.")]
+        private Material _normalSkybox;
+        
+        [SerializeField, Tooltip("Ambient light color used during the Normal world state.")]
+        private Color _normalAmbientLight = Color.white;
+
+        [Header("Visual Settings - Gloomy")]
+        [SerializeField, Tooltip("Skybox material used during the Gloomy world state.")]
+        private Material _gloomySkybox;
+        
+        [SerializeField, Tooltip("Ambient light color used during the Gloomy world state.")]
+        private Color _gloomyAmbientLight = new Color(0.3f, 0.3f, 0.4f);
+
+        [Header("Visual Settings - Hopeful")]
+        [SerializeField, Tooltip("Skybox material used during the Hopeful world state.")]
+        private Material _hopefulSkybox;
+        
+        [SerializeField, Tooltip("Ambient light color used during the Hopeful world state.")]
+        private Color _hopefulAmbientLight = new Color(1f, 0.95f, 0.8f);
+
+        [Header("Audio Settings")]
+        [SerializeField, Tooltip("Background music played during the Normal world state.")]
+        private AudioClip _normalMusic;
+        
+        [SerializeField, Tooltip("Background music played during the Gloomy world state.")]
+        private AudioClip _gloomyMusic;
+        
+        [SerializeField, Tooltip("Background music played during the Hopeful world state.")]
+        private AudioClip _hopefulMusic;
+
+        #endregion
+
+        #region Private Variables
+
+        private AudioSource _audioSource;
+
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Awake()
+        {
+            _audioSource = GetComponent<AudioSource>();
+            _audioSource.loop = true;
+        }
 
         private void Start()
         {
-            audioSource = GetComponent<AudioSource>();
-            if (audioSource == null)
-            {
-                audioSource = gameObject.AddComponent<AudioSource>();
-                audioSource.loop = true;
-            }
-
-            // Subscribe to events
             if (PlotManager.Instance != null)
             {
                 PlotManager.Instance.onWorldStateChanged.AddListener(OnWorldStateChanged);
             }
         }
 
+        private void OnDestroy()
+        {
+            if (PlotManager.Instance != null)
+            {
+                PlotManager.Instance.onWorldStateChanged.RemoveListener(OnWorldStateChanged);
+            }
+        }
+
+        #endregion
+
+        #region State/Core Logic
+
         /// <summary>
-        /// Called when world state changes
+        /// Applies the visual and audio settings for the Normal world state.
+        /// </summary>
+        private void ApplyNormalState()
+        {
+            if (_normalSkybox != null) RenderSettings.skybox = _normalSkybox;
+            RenderSettings.ambientLight = _normalAmbientLight;
+            RenderSettings.fog = false; // Pragmatic fix: reset fog from other states
+            
+            PlayMusic(_normalMusic);
+        }
+
+        /// <summary>
+        /// Applies the visual and audio settings for the Gloomy world state, including fog.
+        /// </summary>
+        private void ApplyGloomyState()
+        {
+            if (_gloomySkybox != null) RenderSettings.skybox = _gloomySkybox;
+            RenderSettings.ambientLight = _gloomyAmbientLight;
+            
+            RenderSettings.fog = true;
+            RenderSettings.fogColor = new Color(0.2f, 0.2f, 0.25f);
+            RenderSettings.fogDensity = 0.02f;
+            
+            PlayMusic(_gloomyMusic);
+        }
+
+        /// <summary>
+        /// Applies the visual and audio settings for the Hopeful world state.
+        /// </summary>
+        private void ApplyHopefulState()
+        {
+            if (_hopefulSkybox != null) RenderSettings.skybox = _hopefulSkybox;
+            RenderSettings.ambientLight = _hopefulAmbientLight;
+            RenderSettings.fog = false;
+            
+            PlayMusic(_hopefulMusic);
+        }
+
+        /// <summary>
+        /// Safely plays the provided audio clip if it differs from the currently playing clip.
+        /// </summary>
+        private void PlayMusic(AudioClip clip)
+        {
+            if (_audioSource == null || clip == null || _audioSource.clip == clip) return;
+
+            _audioSource.clip = clip;
+            _audioSource.Play();
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Triggered when the PlotManager broadcasts a change in the overall world state.
         /// </summary>
         private void OnWorldStateChanged(WorldStateType newState)
         {
-            Debug.Log($"ConsequenceSOExecutor: Applying world state '{newState}'");
-
             switch (newState)
             {
                 case WorldStateType.Normal:
@@ -59,41 +150,6 @@ namespace PlotBranching
             }
         }
 
-        private void ApplyNormalState()
-        {
-            if (normalSkybox != null) RenderSettings.skybox = normalSkybox;
-            RenderSettings.ambientLight = normalAmbientLight;
-            if (normalMusic != null) PlayMusic(normalMusic);
-        }
-
-        private void ApplyGloomyState()
-        {
-            if (gloomySkybox != null) RenderSettings.skybox = gloomySkybox;
-            RenderSettings.ambientLight = gloomyAmbientLight;
-            if (gloomyMusic != null) PlayMusic(gloomyMusic);
-            
-            // Additional effects: fog, post-processing, etc.
-            RenderSettings.fog = true;
-            RenderSettings.fogColor = new Color(0.2f, 0.2f, 0.25f);
-            RenderSettings.fogDensity = 0.02f;
-        }
-
-        private void ApplyHopefulState()
-        {
-            if (hopefulSkybox != null) RenderSettings.skybox = hopefulSkybox;
-            RenderSettings.ambientLight = hopefulAmbientLight;
-            if (hopefulMusic != null) PlayMusic(hopefulMusic);
-
-            RenderSettings.fog = false;
-        }
-
-        private void PlayMusic(AudioClip clip)
-        {
-            if (audioSource == null || clip == null) return;
-            if (audioSource.clip == clip) return;
-
-            audioSource.clip = clip;
-            audioSource.Play();
-        }
+        #endregion
     }
 }

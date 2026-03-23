@@ -1,92 +1,145 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
-    [CreateAssetMenu(fileName = "PlotState", menuName = "Plot System/Plot State")]
+    /// <summary>
+    /// Represents the dynamic runtime state of the game's plot, choices, and world conditions.
+    /// </summary>
+    [CreateAssetMenu(fileName = "New Plot State", menuName = "Longinus/Plot System/Plot State")]
     public class PlotState : ScriptableObject
     {
-        [Header("Karma (Absolute Scale)")]
-        public int currentKarma = 0;
-        
-        // Hard-coded thresholds (Souls-like opacity)
+        #region Constants & Inspector Variables
+
         public const int ABSOLUTE_MIN_KARMA = -100;
         public const int ABSOLUTE_MAX_KARMA = 100;
+
+        [Header("Karma (Absolute Scale)")]
+        [SerializeField, Tooltip("Current karma alignment of the player.")]
+        private int _currentKarma = 0;
         
-        // Ending thresholds (designer-tunable via inspector)
         [Header("Ending Thresholds")]
-        [Tooltip("Karma >= this value triggers Good ending")]
-        public int goodEndingThreshold = 60;
+        [SerializeField, Tooltip("Karma >= this value triggers the Good ending.")]
+        private int _goodEndingThreshold = 60;
         
-        [Tooltip("Karma <= this value triggers Bad ending")]
-        public int badEndingThreshold = -40;
-        
-        // Between badEndingThreshold and goodEndingThreshold = Neutral ending
+        [SerializeField, Tooltip("Karma <= this value triggers the Bad ending.")]
+        private int _badEndingThreshold = -40;
 
         [Header("Decision History")]
-        public List<string> madeDecisionIDs = new List<string>();
-        public List<string> chosenOptions = new List<string>(); // "A" or "B"
+        [SerializeField] private List<string> _madeDecisionIDs = new List<string>();
+        [SerializeField] private List<string> _chosenOptions = new List<string>(); // "A" or "B"
 
         [Header("World State")]
-        public WorldStateType currentWorldState = WorldStateType.Normal;
-        public List<string> openedPathIDs = new List<string>();
+        [SerializeField] private WorldStateType _currentWorldState = WorldStateType.Normal;
+        [SerializeField] private List<string> _openedPathIDs = new List<string>();
 
         [Header("Active Buffs")]
-        public List<string> activeBuffIDs = new List<string>();
+        [SerializeField] private List<string> _activeBuffIDs = new List<string>();
 
         [Header("Unlocked Bosses")]
-        public List<string> unlockedBossIDs = new List<string>();
+        [SerializeField] private List<string> _unlockedBossIDs = new List<string>();
 
-        [Header("NPC Attitudes")]
-        public Dictionary<string, NPCAttitude> npcAttitudes = new Dictionary<string, NPCAttitude>();
+        // Note: Standard Dictionaries do not serialize in the Unity Inspector by default.
+        // If you need to view this in the inspector, you will need a custom serializable dictionary wrapper.
+        private Dictionary<string, NPCAttitude> _npcAttitudes = new Dictionary<string, NPCAttitude>();
+
+        #endregion
+
+        #region Public Properties
+
+        public int CurrentKarma => _currentKarma;
+        public int GoodEndingThreshold => _goodEndingThreshold;
+        public int BadEndingThreshold => _badEndingThreshold;
+        public WorldStateType CurrentWorldState => _currentWorldState;
+
+        // IReadOnlyList ensures external scripts can iterate but cannot accidentally add/remove/clear data
+        public IReadOnlyList<string> MadeDecisionIDs => _madeDecisionIDs;
+        public IReadOnlyList<string> ChosenOptions => _chosenOptions;
+        public IReadOnlyList<string> OpenedPathIDs => _openedPathIDs;
+        public IReadOnlyList<string> ActiveBuffIDs => _activeBuffIDs;
+        public IReadOnlyList<string> UnlockedBossIDs => _unlockedBossIDs;
+
+        #endregion
+
+        #region State/Core Logic
 
         /// <summary>
-        /// Changes karma with absolute limits
+        /// Changes karma with absolute limits and logs the variation.
         /// </summary>
         public void ChangeKarma(int amount)
         {
-            int oldKarma = currentKarma;
-            currentKarma = Mathf.Clamp(currentKarma + amount, ABSOLUTE_MIN_KARMA, ABSOLUTE_MAX_KARMA);
+            int oldKarma = _currentKarma;
+            _currentKarma = Mathf.Clamp(_currentKarma + amount, ABSOLUTE_MIN_KARMA, ABSOLUTE_MAX_KARMA);
             
-            if (currentKarma != oldKarma)
+            if (_currentKarma != oldKarma)
             {
-                Debug.Log($"Karma: {oldKarma} → {currentKarma} ({amount:+#;-#;0})");
+                Debug.Log($"[PlotState] Karma: {oldKarma} → {_currentKarma} ({amount:+#;-#;0})");
+            }
+        }
+
+        public bool IsGoodEnding() => _currentKarma >= _goodEndingThreshold;
+        public bool IsBadEnding() => _currentKarma <= _badEndingThreshold;
+        public bool IsNeutralEnding() => !IsGoodEnding() && !IsBadEnding();
+        public bool IsKarmaAbove(int threshold) => _currentKarma >= threshold;
+        public bool IsKarmaBelow(int threshold) => _currentKarma <= threshold;
+
+        /// <summary>
+        /// Registers a player's choice to the persistent plot state.
+        /// </summary>
+        public void AddDecision(string decisionId, string chosenOption)
+        {
+            if (!_madeDecisionIDs.Contains(decisionId))
+            {
+                _madeDecisionIDs.Add(decisionId);
+                _chosenOptions.Add(chosenOption);
             }
         }
 
         /// <summary>
-        /// Checks if karma meets threshold for good ending
+        /// Updates or adds the attitude of a specific NPC.
         /// </summary>
-        public bool IsGoodEnding() => currentKarma >= goodEndingThreshold;
+        public void SetNPCAttitude(string npcId, NPCAttitude attitude)
+        {
+            _npcAttitudes[npcId] = attitude;
+        }
 
         /// <summary>
-        /// Checks if karma meets threshold for bad ending
+        /// Retrieves the current attitude of an NPC.
         /// </summary>
-        public bool IsBadEnding() => currentKarma <= badEndingThreshold;
+        public bool TryGetNPCAttitude(string npcId, out NPCAttitude attitude)
+        {
+            return _npcAttitudes.TryGetValue(npcId, out attitude);
+        }
 
         /// <summary>
-        /// Neutral ending is everything in between
-        /// </summary>
-        public bool IsNeutralEnding() => !IsGoodEnding() && !IsBadEnding();
-
-        /// <summary>
-        /// Generic threshold check
-        /// </summary>
-        public bool IsKarmaAbove(int threshold) => currentKarma >= threshold;
-        public bool IsKarmaBelow(int threshold) => currentKarma <= threshold;
-
-        /// <summary>
-        /// Resets state to default (for new game)
+        /// Resets the plot state to default values (useful for New Game).
         /// </summary>
         public void ResetState()
         {
-            currentKarma = 0;
-            madeDecisionIDs.Clear();
-            chosenOptions.Clear();
-            currentWorldState = WorldStateType.Normal;
-            activeBuffIDs.Clear();
-            unlockedBossIDs.Clear();
-            npcAttitudes.Clear();
+            _currentKarma = 0;
+            _currentWorldState = WorldStateType.Normal;
+            
+            _madeDecisionIDs.Clear();
+            _chosenOptions.Clear();
+            _openedPathIDs.Clear();
+            _activeBuffIDs.Clear();
+            _unlockedBossIDs.Clear();
+            _npcAttitudes.Clear();
         }
+
+        public void SetWorldState(WorldStateType newState)
+        {
+            _currentWorldState = newState;
+        }
+
+        public void AddOpenedPath(string pathId)
+        {
+            if (!_openedPathIDs.Contains(pathId))
+            {
+                _openedPathIDs.Add(pathId);
+            }
+        }
+
+        #endregion
     }
 }

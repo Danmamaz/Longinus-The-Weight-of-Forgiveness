@@ -1,38 +1,58 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-[RequireComponent(typeof(Graphic))]
-public class UIUnscaledTimeProvider : MonoBehaviour
+namespace Longinus.UI
 {
-    private Material _materialInstance;
-    private int _unscaledTimeID;
-
-    private void Start()
+    /// <summary>
+    /// Provides unscaled time to a UI Graphic's material, allowing shader animations to continue even when time is paused.
+    /// </summary>
+    [RequireComponent(typeof(Graphic))]
+    public class UIUnscaledTimeProvider : MonoBehaviour
     {
-        _unscaledTimeID = Shader.PropertyToID("_UnscaledTime");
-        Graphic graphicComponent = GetComponent<Graphic>();
+        #region Constants & Inspector Variables
         
-        if (graphicComponent != null && graphicComponent.material != null)
+        // Cached statically so all instances share the same property ID without recalculating
+        private static readonly int UnscaledTimeID = Shader.PropertyToID("_UnscaledTime");
+        
+        #endregion
+
+        #region Private Variables
+        
+        private Material _materialInstance;
+        
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            _materialInstance = new Material(graphicComponent.material);
+            Graphic graphicComponent = GetComponent<Graphic>();
             
-            graphicComponent.material = _materialInstance;
+            if (graphicComponent != null && graphicComponent.material != null)
+            {
+                // Instantiate the material to prevent modifying the shared project asset
+                _materialInstance = new Material(graphicComponent.material);
+                graphicComponent.material = _materialInstance;
+            }
         }
-    }
 
-    private void Update()
-    {
-        if (_materialInstance != null)
+        private void Update()
         {
-            _materialInstance.SetFloat(_unscaledTimeID, Time.unscaledTime);
+            if (_materialInstance != null)
+            {
+                _materialInstance.SetFloat(UnscaledTimeID, Time.unscaledTime);
+            }
         }
-    }
 
-    private void OnDestroy()
-    {
-        if (_materialInstance != null)
+        private void OnDestroy()
         {
-            Destroy(_materialInstance);
+            if (_materialInstance != null)
+            {
+                // Clean up the instantiated material to prevent memory leaks
+                Destroy(_materialInstance);
+            }
         }
+
+        #endregion
     }
 }

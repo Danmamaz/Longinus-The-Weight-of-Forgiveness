@@ -1,33 +1,67 @@
-using UnityEngine;                // Required for ScriptableObject, Header, etc.
-using UnityEngine.Events;         // Required for UnityEvent
-using System.Collections.Generic; // Required for List<>
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Events;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
-    [CreateAssetMenu(fileName = "New Ending", menuName = "Plot System/Ending Definition")]
+    /// <summary>
+    /// Defines the requirements and assets for a specific game ending.
+    /// </summary>
+    [CreateAssetMenu(fileName = "New Ending", menuName = "Longinus/Plot System/Ending Definition")]
     public class EndingDefinition : ScriptableObject
     {
+        #region Inspector Variables
+
         [Header("Ending Identity")]
-        public string endingID;
-        public string endingName;
-        [TextArea(3, 6)]
-        public string endingDescription;
+        [SerializeField, Tooltip("Unique identifier for this ending.")]
+        private string _endingID;
+        
+        [SerializeField, Tooltip("Display name of the ending.")]
+        private string _endingName;
+        
+        [TextArea(3, 6), SerializeField, Tooltip("Internal or lore description of the ending.")]
+        private string _endingDescription;
 
         [Header("Karma Threshold (Absolute)")]
         [Range(-100, 100)]
-        public int karmaThreshold = 0; 
+        [SerializeField, Tooltip("Minimum or maximum karma required to trigger this ending.")]
+        private int _karmaThreshold = 0; 
         
         [Header("Additional Conditions (Optional)")]
-        // This now works because we defined DecisionCondition in PlotStructures.cs
-        public List<DecisionCondition> additionalConditions = new List<DecisionCondition>();
+        [SerializeField, Tooltip("Extra plot conditions that must be met.")]
+        private List<DecisionCondition> _additionalConditions = new List<DecisionCondition>();
 
         [Header("Cinematic/Scene")]
-        public string endingSceneName;
-        public GameObject endingCutscenePrefab;
+        [SerializeField, Tooltip("Name of the scene to load for this ending.")]
+        private string _endingSceneName;
+        
+        [SerializeField, Tooltip("Cutscene prefab to instantiate when the ending begins.")]
+        private GameObject _endingCutscenePrefab;
 
         [Header("Callbacks")]
-        public UnityEvent onEndingTriggered;
+        [SerializeField, Tooltip("Events triggered immediately when this ending is selected.")]
+        private UnityEvent _onEndingTriggered;
 
-        public Endings endingType;
+        [Header("Configuration")]
+        [SerializeField, Tooltip("Categorization of the ending type.")]
+        private Endings _endingType;
+
+        #endregion
+
+        #region Public Properties
+
+        public string EndingID => _endingID;
+        public string EndingName => _endingName;
+        public string EndingDescription => _endingDescription;
+        public int KarmaThreshold => _karmaThreshold;
+        
+        public IReadOnlyList<DecisionCondition> AdditionalConditions => _additionalConditions;
+        
+        public string EndingSceneName => _endingSceneName;
+        public GameObject EndingCutscenePrefab => _endingCutscenePrefab;
+        public UnityEvent OnEndingTriggered => _onEndingTriggered;
+        public Endings EndingType => _endingType;
+
+        #endregion
     }
 }

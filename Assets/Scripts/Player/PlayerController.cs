@@ -1,168 +1,239 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Longinus.UI;
 
-[RequireComponent(typeof(PlayerInput))]
-[RequireComponent(typeof(PlayerCombatManager))]
-[RequireComponent(typeof(PlayerStatsManager))]
-[RequireComponent(typeof(PlayerLocomotion))]
-public class PlayerController : MonoBehaviour
+namespace Longinus.Player
 {
-    [Header("Input")]
-    [SerializeField] private InputActionReference moveActionRef;
-    [SerializeField] private InputActionReference rollActionRef;
-    [SerializeField] private InputActionReference lightAttackRef;
-    [SerializeField] private InputActionReference heavyAttackRef;
-    [SerializeField] private InputActionReference interactActionRef;
-    [SerializeField] private InputActionReference pauseActionRef;
-
-    [Header("Stats")]
-    public float MoveSpeed = 6f;
-    public float RotationSpeed = 15f;
-    public float RollDuration = 0.8f;
-    public float RollDistanceMult = 15f;
-    public AnimationCurve RollSpeedCurve = new AnimationCurve(new Keyframe(0, 1), new Keyframe(1, 3.5f));
-
-    [Header("UI")]
-    [SerializeField] private UIManager uiManager;
-
-    public Animator Animator { get; private set; }
-    public PlayerCombatManager CombatManager { get; private set; }
-    public PlayerStatsManager Stats { get; private set; }
-    public PlayerLocomotion Locomotion { get; private set; }
-    public InteractionSystem InteractionSystem;
-
-    private PlayerStateMachine _stateMachine;
-    public PlayerMoveState MoveState { get; private set; }
-    public PlayerRollState RollState { get; private set; }
-    public PlayerAttackState AttackState { get; private set; }
-    public PlayerInteractState InteractState { get; private set; }
-
-    public Vector3 MoveInput { get; private set; }
-    public bool IsMoving => MoveInput.sqrMagnitude > 0.001f;
-    
-    public bool RollTriggered { get; private set; }
-    public bool AttackTriggered => LightAttackTriggered || HeavyAttackTriggered;
-    public bool LightAttackTriggered { get; private set; }
-    public bool HeavyAttackTriggered { get; private set; }
-
-    private void Awake()
+    /// <summary>
+    /// Main controller for the player character. Manages input handling, state machine, and component bridging.
+    /// </summary>
+    [RequireComponent(typeof(PlayerInput))]
+    [RequireComponent(typeof(PlayerCombatManager))]
+    [RequireComponent(typeof(PlayerStatsManager))]
+    [RequireComponent(typeof(PlayerLocomotion))]
+    public class PlayerController : MonoBehaviour
     {
-        CombatManager = GetComponent<PlayerCombatManager>();
-        Stats = GetComponent<PlayerStatsManager>();
-        Locomotion = GetComponent<PlayerLocomotion>();
-        Animator = GetComponentInChildren<Animator>();
+        #region Constants & Inspector Variables
+        
+        [Header("Input References")]
+        [SerializeField, Tooltip("Reference to the movement input action.")] 
+        private InputActionReference _moveActionRef;
+        
+        [SerializeField, Tooltip("Reference to the dodge/roll input action.")] 
+        private InputActionReference _rollActionRef;
+        
+        [SerializeField, Tooltip("Reference to the light attack input action.")] 
+        private InputActionReference _lightAttackRef;
+        
+        [SerializeField, Tooltip("Reference to the heavy attack input action.")] 
+        private InputActionReference _heavyAttackRef;
+        
+        [SerializeField, Tooltip("Reference to the interaction input action.")] 
+        private InputActionReference _interactActionRef;
+        
+        [SerializeField, Tooltip("Reference to the pause menu input action.")] 
+        private InputActionReference _pauseActionRef;
 
-        InitStateMachine();
-    }
+        [Header("Movement & Roll Stats")]
+        [SerializeField] private float _moveSpeed = 6f;
+        [SerializeField] private float _rotationSpeed = 15f;
+        [SerializeField] private float _rollDuration = 0.8f;
+        [SerializeField] private float _rollDistanceMult = 15f;
+        [SerializeField] private AnimationCurve _rollSpeedCurve = new AnimationCurve(new Keyframe(0, 1), new Keyframe(1, 3.5f));
 
-    private void Start() => _stateMachine.Initialize(MoveState);
-    
-    private void Update()
-    {
-        ReadInput();
+        [Header("System References")]
+        [SerializeField] private UIManager _uiManager;
+        [SerializeField] private InteractionSystem _interactionSystem;
 
-        _stateMachine.CurrentState.UpdateState();
-    }
+        #endregion
 
-    private void FixedUpdate() => _stateMachine.CurrentState.FixedUpdateState();
+        #region Private Variables
+        
+        private PlayerStateMachine _stateMachine;
+        
+        #endregion
 
-    private void InitStateMachine()
-    {
-        _stateMachine = new PlayerStateMachine();
-        MoveState = new PlayerMoveState(this, _stateMachine);
-        RollState = new PlayerRollState(this, _stateMachine);
-        AttackState = new PlayerAttackState(this, _stateMachine);
-        InteractState = new PlayerInteractState(this, _stateMachine);
-    }
+        #region Public Properties
+        
+        public float MoveSpeed => _moveSpeed;
+        public float RotationSpeed => _rotationSpeed;
+        public float RollDuration => _rollDuration;
+        public float RollDistanceMult => _rollDistanceMult;
+        public AnimationCurve RollSpeedCurve => _rollSpeedCurve;
 
-    private void ReadInput()
-    {
-        if (moveActionRef != null)
+        public Animator Animator { get; private set; }
+        public PlayerCombatManager CombatManager { get; private set; }
+        public PlayerStatsManager Stats { get; private set; }
+        public PlayerLocomotion Locomotion { get; private set; }
+        public InteractionSystem InteractionSystem => _interactionSystem;
+
+        // State Machine States
+        public PlayerMoveState MoveState { get; private set; }
+        public PlayerRollState RollState { get; private set; }
+        public PlayerAttackState AttackState { get; private set; }
+        public PlayerInteractState InteractState { get; private set; }
+
+        // Input States
+        public Vector3 MoveInput { get; private set; }
+        public bool IsMoving => MoveInput.sqrMagnitude > 0.001f;
+        public bool RollTriggered { get; private set; }
+        public bool AttackTriggered => LightAttackTriggered || HeavyAttackTriggered;
+        public bool LightAttackTriggered { get; private set; }
+        public bool HeavyAttackTriggered { get; private set; }
+        
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            Vector2 input = moveActionRef.action.ReadValue<Vector2>();
-            MoveInput = new Vector3(input.x, 0, input.y).normalized;
+            CombatManager = GetComponent<PlayerCombatManager>();
+            Stats = GetComponent<PlayerStatsManager>();
+            Locomotion = GetComponent<PlayerLocomotion>();
+            Animator = GetComponentInChildren<Animator>();
+
+            InitStateMachine();
         }
-    }
 
-    public void ResetRollTrigger() => RollTriggered = false;
-    public void ResetAttackTriggers() { LightAttackTriggered = false; HeavyAttackTriggered = false; }
-
-    private void OnEnable()
-    {
-        if (moveActionRef == null) return;
-
-        SetInputActionsState(true);
-
-        rollActionRef.action.performed += OnRollPerformed;
-        lightAttackRef.action.performed += OnLightAttackPerformed;
-        heavyAttackRef.action.performed += OnHeavyAttackPerformed;
-        interactActionRef.action.performed += OnInteractPerformed;
-        pauseActionRef.action.performed += OnPausePerformed;
-    }
-
-    private void OnDisable()
-    {
-        if (moveActionRef == null) return;
-
-        rollActionRef.action.performed -= OnRollPerformed;
-        lightAttackRef.action.performed -= OnLightAttackPerformed;
-        heavyAttackRef.action.performed -= OnHeavyAttackPerformed;
-        interactActionRef.action.performed -= OnInteractPerformed;
-        pauseActionRef.action.performed -= OnPausePerformed;
-
-        SetInputActionsState(false);
-    }
-
-    public void SetInputActionsState(bool state)
-    {
-        if(state)
+        private void OnEnable()
         {
-            moveActionRef.action.Enable();
-            rollActionRef.action.Enable();
-            lightAttackRef.action.Enable();
-            heavyAttackRef.action.Enable();
-            interactActionRef.action.Enable();
+            if (_moveActionRef == null) return;
+
+            SetInputActionsState(true);
+
+            _rollActionRef.action.performed += OnRollPerformed;
+            _lightAttackRef.action.performed += OnLightAttackPerformed;
+            _heavyAttackRef.action.performed += OnHeavyAttackPerformed;
+            _interactActionRef.action.performed += OnInteractPerformed;
+            _pauseActionRef.action.performed += OnPausePerformed;
         }
-        else
+
+        private void Start()
         {
-            moveActionRef.action.Disable();
-            rollActionRef.action.Disable();
-            lightAttackRef.action.Disable();
-            heavyAttackRef.action.Disable();
-            interactActionRef.action.Disable();
+            _stateMachine.Initialize(MoveState);
         }
-    }
 
-
-    private void OnRollPerformed(InputAction.CallbackContext context)
-    {
-        RollTriggered = true;
-    }
-
-    private void OnLightAttackPerformed(InputAction.CallbackContext context)
-    {
-        LightAttackTriggered = true;
-    }
-
-    private void OnHeavyAttackPerformed(InputAction.CallbackContext context)
-    {
-        HeavyAttackTriggered = true;
-    }
-
-    private void OnInteractPerformed(InputAction.CallbackContext context)
-    {
-    
-        if (_stateMachine.CurrentState == MoveState)
+        private void Update()
         {
-            _stateMachine.ChangeState(InteractState);
+            ReadInput();
+            
+            // Defensively calling through the current state to avoid exceptions if the machine isn't fully initialized
+            _stateMachine.CurrentState?.UpdateState();
         }
+
+        private void FixedUpdate()
+        {
+            _stateMachine.CurrentState?.FixedUpdateState();
+        }
+
+        private void OnDisable()
+        {
+            if (_moveActionRef == null) return;
+
+            _rollActionRef.action.performed -= OnRollPerformed;
+            _lightAttackRef.action.performed -= OnLightAttackPerformed;
+            _heavyAttackRef.action.performed -= OnHeavyAttackPerformed;
+            _interactActionRef.action.performed -= OnInteractPerformed;
+            _pauseActionRef.action.performed -= OnPausePerformed;
+
+            SetInputActionsState(false);
+        }
+
+        #endregion
+
+        #region State/Core Logic
+
+        /// <summary>
+        /// Instantiates the state machine and all player states.
+        /// </summary>
+        private void InitStateMachine()
+        {
+            _stateMachine = new PlayerStateMachine();
+            MoveState = new PlayerMoveState(this, _stateMachine);
+            RollState = new PlayerRollState(this, _stateMachine);
+            AttackState = new PlayerAttackState(this, _stateMachine);
+            InteractState = new PlayerInteractState(this, _stateMachine);
+        }
+
+        /// <summary>
+        /// Reads and normalizes the movement input vector.
+        /// </summary>
+        private void ReadInput()
+        {
+            if (_moveActionRef != null)
+            {
+                Vector2 input = _moveActionRef.action.ReadValue<Vector2>();
+                MoveInput = new Vector3(input.x, 0f, input.y).normalized;
+            }
+        }
+
+        /// <summary>
+        /// Consumes the roll trigger to prevent continuous rolling.
+        /// </summary>
+        public void ResetRollTrigger() => RollTriggered = false;
+
+        /// <summary>
+        /// Consumes attack triggers to prevent buffered attacks from firing indefinitely.
+        /// </summary>
+        public void ResetAttackTriggers() 
+        { 
+            LightAttackTriggered = false; 
+            HeavyAttackTriggered = false; 
+        }
+
+        /// <summary>
+        /// Enables or disables combat and movement input actions.
+        /// Pause action remains active intentionally.
+        /// </summary>
+        /// <param name="state">True to enable, false to disable.</param>
+        public void SetInputActionsState(bool state)
+        {
+            if(state)
+            {
+                _moveActionRef.action.Enable();
+                _rollActionRef.action.Enable();
+                _lightAttackRef.action.Enable();
+                _heavyAttackRef.action.Enable();
+                _interactActionRef.action.Enable();
+            }
+            else
+            {
+                _moveActionRef.action.Disable();
+                _rollActionRef.action.Disable();
+                _lightAttackRef.action.Disable();
+                _heavyAttackRef.action.Disable();
+                _interactActionRef.action.Disable();
+            }
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        private void OnRollPerformed(InputAction.CallbackContext context) => RollTriggered = true;
+        private void OnLightAttackPerformed(InputAction.CallbackContext context) => LightAttackTriggered = true;
+        private void OnHeavyAttackPerformed(InputAction.CallbackContext context) => HeavyAttackTriggered = true;
+
+        private void OnInteractPerformed(InputAction.CallbackContext context)
+        {
+            if (_stateMachine.CurrentState == MoveState)
+            {
+                _stateMachine.ChangeState(InteractState);
+            }
+        }
+
+        private void OnPausePerformed(InputAction.CallbackContext context)
+        {
+            if (_uiManager == null) 
+            {
+                Debug.LogWarning("[PlayerController] UIManager is missing. Cannot pause.");
+                return;
+            }
+            
+            bool isPaused = _uiManager.TogglePauseMenu();
+            SetInputActionsState(!isPaused);
+        }
+
+        #endregion
     }
-
-    private void OnPausePerformed(InputAction.CallbackContext context)
-    {
-        bool isPaused = uiManager.TogglePauseMenu();
-
-        SetInputActionsState(!isPaused);
-    }
-
 }

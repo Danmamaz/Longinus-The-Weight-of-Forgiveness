@@ -1,19 +1,29 @@
-using UnityEngine;
-using UnityEditor;
+using System;
 using System.Collections.Generic;
 using System.Text;
+using UnityEditor;
+using UnityEngine;
 
-namespace PlotBranching.EditorScripts
+namespace Longinus.PlotSystem.Editor
 {
 #if UNITY_EDITOR
+    /// <summary>
+    /// Provides editor tools to validate the integrity of plot-related data like DecisionNodes.
+    /// </summary>
     public static class PlotSystemValidator
     {
-        [MenuItem("Tools/Plot System/Validate All Nodes")]
+        #region State/Core Logic
+
+        /// <summary>
+        /// Finds and validates all DecisionNode assets in the project.
+        /// Checks for missing IDs, duplicate IDs, and broken boss data references.
+        /// </summary>
+        [MenuItem("Tools/Longinus/Plot System/Validate All Nodes")]
         public static void ValidateAll()
         {
             string[] guids = AssetDatabase.FindAssets("t:DecisionNode");
             
-            HashSet<string> decisionIDs = new HashSet<string>();
+            HashSet<string> DecisionIDs = new HashSet<string>();
             List<string> errors = new List<string>();
             int checkedNodesCount = 0;
             
@@ -25,26 +35,26 @@ namespace PlotBranching.EditorScripts
                 if (decision == null) continue;
                 checkedNodesCount++;
 
-                if (string.IsNullOrWhiteSpace(decision.decisionID))
+                if (string.IsNullOrWhiteSpace(decision.DecisionID))
                 {
                     errors.Add($"[Empty ID] Decision '{decision.name}' at path '{path}'.");
                     continue;
                 }
                 
-                if (!decisionIDs.Add(decision.decisionID))
+                if (!DecisionIDs.Add(decision.DecisionID))
                 {
-                    errors.Add($"[Duplicate ID] '{decision.decisionID}' is shared by '{decision.name}'.");
+                    errors.Add($"[Duplicate ID] '{decision.DecisionID}' is shared by '{decision.name}'.");
                 }
                 
-                if (decision.isBossFight)
+                if (decision.IsBossFight)
                 {
-                    if (decision.linkedBoss == null)
+                    if (decision.LinkedBoss == null)
                     {
-                        errors.Add($"[Missing Reference] '{decision.decisionID}' is marked as Boss Fight but lacks Boss Data!");
+                        errors.Add($"[Missing Reference] '{decision.DecisionID}' is marked as Boss Fight but lacks Boss Data!");
                     }
-                    else if (string.IsNullOrWhiteSpace(decision.linkedBoss.bossID))
+                    else if (string.IsNullOrWhiteSpace(decision.LinkedBoss.BossID))
                     {
-                        errors.Add($"[Broken Reference] '{decision.decisionID}' links to Boss Data '{decision.linkedBoss.name}' which has an empty Boss ID.");
+                        errors.Add($"[Broken Reference] '{decision.DecisionID}' links to Boss Data '{decision.LinkedBoss.name}' which has an empty Boss ID.");
                     }
                 }
             }
@@ -64,11 +74,21 @@ namespace PlotBranching.EditorScripts
                 Debug.Log($"Plot System Validation PASSED. ({checkedNodesCount} nodes verified).");
             }
         }
+
+        #endregion
     }
     
+    /// <summary>
+    /// Custom inspector for DecisionNode to provide quick validation warnings and ID generation.
+    /// </summary>
     [CustomEditor(typeof(DecisionNode))]
-    public class DecisionNodeEditor : Editor
+    public class DecisionNodeEditor : UnityEditor.Editor
     {
+        #region Unity Lifecycle
+
+        /// <summary>
+        /// Draws the custom inspector GUI, including validation warnings and utility buttons.
+        /// </summary>
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
@@ -78,12 +98,12 @@ namespace PlotBranching.EditorScripts
             
             EditorGUILayout.Space();
 
-            if (string.IsNullOrWhiteSpace(node.decisionID))
+            if (string.IsNullOrWhiteSpace(node.DecisionID))
             {
                 EditorGUILayout.HelpBox("CRITICAL: Decision ID is missing!", MessageType.Error);
             }
             
-            if (node.isBossFight && node.linkedBoss == null)
+            if (node.IsBossFight && node.LinkedBoss == null)
             {
                 EditorGUILayout.HelpBox("WARNING: Boss fight flag is active, but no Boss Data is assigned.", MessageType.Warning);
             }
@@ -93,10 +113,12 @@ namespace PlotBranching.EditorScripts
             if (GUILayout.Button("Generate Unique ID"))
             {
                 Undo.RecordObject(node, "Generate Decision ID");
-                node.decisionID = $"decision_{System.Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                node.DecisionID = $"decision_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
                 EditorUtility.SetDirty(node);
             }
         }
+
+        #endregion
     }
 #endif
 }

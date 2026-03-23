@@ -1,36 +1,60 @@
 using UnityEngine;
-using Enemy.BaseEnemy;
 
-namespace Enemy.BaseEnemy
+namespace Longinus.EnemySystem
 {
+    /// <summary>
+    /// Core controller for enemy AI. Manages the state machine, sensors, and bridges data between movement and stats.
+    /// </summary>
     [RequireComponent(typeof(Animator), typeof(EnemyMovementManager), typeof(EnemyStatsManager))]
     public class EnemyController : MonoBehaviour
     {
+        #region Constants & Inspector Variables
+        
         [Header("Core References")]
-        [SerializeField] private Transform playerTransform;
-        [SerializeField, Tooltip("Шар, що блокує видимість (стіни)")] 
-        private LayerMask obstacleLayer;
+        [SerializeField, Tooltip("Reference to the player's transform.")] 
+        private Transform _playerTransform;
+        
+        [SerializeField, Tooltip("Layer masking environment obstacles that block line of sight.")] 
+        private LayerMask _obstacleLayer;
+
+        [SerializeField, Tooltip("Specific colliders (Hurtboxes/Hitboxes) to disable upon death to prevent camera or trigger interference.")]
+        private Collider[] _bodyColliders;
 
         [Header("AI Sensors & Settings")]
-        [SerializeField, Tooltip("Радіус виявлення гравця")] 
-        private float detectionRange = 10f;
-        [SerializeField, Tooltip("Кут зору противника (в градусах)")] 
-        private float fieldOfViewAngle = 120f; // Додай це. 120-140 градусів - стандарт.
-        [SerializeField, Tooltip("Радіус для переходу в атаку")] 
-        private float attackRange = 2f;
+        [SerializeField, Tooltip("Maximum distance the enemy can detect the player.")] 
+        private float _detectionRange = 10f;
+        
+        [SerializeField, Tooltip("Vision cone angle in degrees.")] 
+        private float _fieldOfViewAngle = 120f;
+        
+        [SerializeField, Tooltip("Distance threshold to transition into attack state.")] 
+        private float _attackRange = 2f;
         
         [Header("Patrol Settings")]
-        public bool patrolingEnemy;
-        public Transform[] patrolWaypoints;
+        public Transform[] PatrolWaypoints;
+        public bool IsPatrollingEnemy;
 
         [Header("Boss Choice")]
-        [SerializeField] public string decisionId = "boss_01"; // ID для PlotManager
+        [SerializeField, Tooltip("Unique identifier for PlotManager to track decisions related to this entity.")] 
+        private string _decisionId = "boss_01";
+        
+        #endregion
+
+        #region Private Variables
+        
+        private EnemyStateMachine _stateMachine;
+        private bool _isDead;
+        private float _sqrDetectionRange;
+        private float _sqrAttackRange;
+        
+        #endregion
+
+        #region Public Properties
 
         public Animator Animator { get; private set; }
         public EnemyMovementManager MovementManager { get; private set; }
-        public EnemyStatsManager statsManager;
+        public EnemyStatsManager StatsManager { get; private set; }
 
-        private EnemyStateMachine _stateMachine;
         public EnemyIdleState IdleState { get; private set; }
         public EnemyChaseState ChaseState { get; private set; }
         public EnemyAttackState AttackState { get; private set; }
@@ -39,29 +63,25 @@ namespace Enemy.BaseEnemy
         public EnemyCombatStrafeState CombatStrafeState { get; private set; }
         public EnemyStaggeredState StaggeredState { get; private set; }
         public EnemyBossDeathChoiceState BossDeathChoiceState { get; private set; }
-
-
+        public EnemyDeadState DeadState { get; private set; } // Added to enforce hard stop
 
         public bool HasLastKnownPosition { get; private set; }
         public Vector3 LastKnownPlayerPosition { get; private set; }
-
-        public Transform PlayerTransform => playerTransform;
-
-        private bool _isDead;
+        public Transform PlayerTransform => _playerTransform;
+        public string DecisionId => _decisionId;
         
-        private float _sqrDetectionRange;
-        private float _sqrAttackRange;
+        #endregion
 
-#region Unity Lifecycle
+        #region Unity Lifecycle
 
         private void Awake()
         {
             Animator = GetComponent<Animator>();
             MovementManager = GetComponent<EnemyMovementManager>();
-            statsManager = GetComponent<EnemyStatsManager>();
+            StatsManager = GetComponent<EnemyStatsManager>();
 
-            _sqrDetectionRange = detectionRange * detectionRange;
-            _sqrAttackRange = attackRange * attackRange;
+            _sqrDetectionRange = _detectionRange * _detectionRange;
+            _sqrAttackRange = _attackRange * _attackRange;
 
             _stateMachine = new EnemyStateMachine();
             IdleState = new EnemyIdleState(this, _stateMachine);
@@ -72,6 +92,7 @@ namespace Enemy.BaseEnemy
             CombatStrafeState = new EnemyCombatStrafeState(this, _stateMachine);
             StaggeredState = new EnemyStaggeredState(this, _stateMachine);
             BossDeathChoiceState = new EnemyBossDeathChoiceState(this, _stateMachine);
+            DeadState = new EnemyDeadState(this, _stateMachine);
         }
 
         private void OnEnable()
@@ -79,24 +100,27 @@ namespace Enemy.BaseEnemy
             _isDead = false;
             ClearLastKnownPosition();
             
-            statsManager.OnDeath += HandleDeath;
-            statsManager.OnPoiseBreak += HandlePoiseBreak;
-            statsManager.OnSpareableDeath += () => _stateMachine.ChangeState(BossDeathChoiceState);
+            StatsManager.OnDeath += HandleDeath;
+            StatsManager.OnPoiseBreak += HandlePoiseBreak;
+            StatsManager.OnSpareableDeath += HandleSpareableDeath;
 
-            if (playerTransform != null)
+            if (_playerTransform != null)
             {
-                MovementManager.SetTarget(playerTransform);
+                MovementManager.SetTarget(_playerTransform);
             }
 
-            // Запобігаємо NullReferenceException, якщо масив не призначено
-            bool hasWaypoints = patrolWaypoints != null && patrolWaypoints.Length > 0;
-            _stateMachine.Initialize(patrolingEnemy && hasWaypoints ? PatrolState : IdleState);
+            bool hasWaypoints = PatrolWaypoints != null && PatrolWaypoints.Length > 0;
+            _stateMachine.Initialize(IsPatrollingEnemy && hasWaypoints ? PatrolState : IdleState);
         }
 
         private void OnDisable()
         {
-            if (statsManager != null)
-                statsManager.OnDeath -= HandleDeath;
+            if (StatsManager != null)
+            {
+                StatsManager.OnDeath -= HandleDeath;
+                StatsManager.OnPoiseBreak -= HandlePoiseBreak;
+                StatsManager.OnSpareableDeath -= HandleSpareableDeath;
+            }
         }
 
         private void Update()
@@ -110,109 +134,144 @@ namespace Enemy.BaseEnemy
         private void FixedUpdate()
         {
             if (_isDead) return;
+            
             _stateMachine.FixedUpdate();
         }
 
-#endregion
+#if UNITY_EDITOR
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, _detectionRange);
+            
+            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, _attackRange);
+        }
+#endif
 
-#region Last Known Position Methods
+        #endregion
+
+        #region State/Core Logic
+        
+        /// <summary>
+        /// Updates environmental sensors to track the player's last known position.
+        /// </summary>
         private void UpdateSensors()
         {
             if (IsPlayerInDetectionRange())
             {
                 HasLastKnownPosition = true;
-                LastKnownPlayerPosition = playerTransform.position;
+                LastKnownPlayerPosition = _playerTransform.position;
             }
         }
 
+        /// <summary>
+        /// Checks if the enemy has reached the last coordinate where the player was seen.
+        /// </summary>
         public bool HasReachedLastKnownPosition()
         {
             if (!HasLastKnownPosition) return true;
             return MovementManager.ReachedDestination();
         }
 
+        /// <summary>
+        /// Clears the cached player position data.
+        /// </summary>
         public void ClearLastKnownPosition()
         {
             HasLastKnownPosition = false;
         }
 
-#endregion
-
-#region Player Detection
+        /// <summary>
+        /// Evaluates distance, field of view, and line of sight to determine if the player is visible.
+        /// </summary>
         public bool IsPlayerInDetectionRange()
         {
-            if (playerTransform == null) return false;
+            if (_playerTransform == null) return false;
             
-            Vector3 directionToPlayer = playerTransform.position - transform.position;
+            Vector3 directionToPlayer = _playerTransform.position - transform.position;
             
-            // 1. ФАЗА ПЕРША: Перевірка дистанції
             if (directionToPlayer.sqrMagnitude > _sqrDetectionRange) return false;
 
-            // 2. ФАЗА ДРУГА: Перевірка кута зору (Field of View)
-            // Ми беремо кут між тим, куди дивиться ворог (transform.forward) і вектором до гравця
             float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
-            if (angleToPlayer > fieldOfViewAngle / 2f) return false; // Ділимо на 2, бо кут розходиться в обидві сторони від центру
+            if (angleToPlayer > _fieldOfViewAngle / 2f) return false;
 
-            // 3. ФАЗА ТРЕТЯ: Line of Sight (Перешкоди)
-            // Raycast кидаємо на дистанцію до гравця (а не на максимальний detectionRange)
-            // і ТІЛЬКИ по шару obstacleLayer.
             float distanceToPlayer = directionToPlayer.magnitude;
-            Vector3 rayStartOffset = transform.position + Vector3.up; // рівень грудей/очей
+            Vector3 rayStartOffset = transform.position + Vector3.up; 
             
-            if (Physics.Raycast(rayStartOffset, directionToPlayer.normalized, out RaycastHit hit, distanceToPlayer, obstacleLayer))
+            if (Physics.Raycast(rayStartOffset, directionToPlayer.normalized, out RaycastHit hit, distanceToPlayer, _obstacleLayer))
             {
-                // Якщо ми влучили в перешкоду на шляху до гравця - стіна перекриває зір. Гравець у безпеці.
                 return false;
             }
 
-            // Якщо ми пройшли всі три фази — ми легально "бачимо" гравця.
             return true;
         }
 
+        /// <summary>
+        /// Checks if the player is close enough to trigger an attack sequence.
+        /// </summary>
         public bool IsPlayerInAttackRange()
         {
-            if (playerTransform == null) return false;
-            return (transform.position - playerTransform.position).sqrMagnitude <= _sqrAttackRange;
+            if (_playerTransform == null) return false;
+            return (transform.position - _playerTransform.position).sqrMagnitude <= _sqrAttackRange;
         }
 
-#endregion
+        /// <summary>
+        /// Safely disables predefined body colliders to prevent interference post-mortem.
+        /// </summary>
+        public void DisableColliders()
+        {
+            if (_bodyColliders == null || _bodyColliders.Length == 0)
+            {
+                Debug.LogWarning($"[EnemyController] No body colliders assigned to {_decisionId}. Falling back to main collider.");
+                Collider col = GetComponent<Collider>();
+                if (col != null) col.enabled = false;
+                return;
+            }
 
+            foreach (var col in _bodyColliders)
+            {
+                if (col != null) col.enabled = false;
+            }
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Handles irreversible death sequence and state transition.
+        /// </summary>
         private void HandleDeath()
         {
             if (_isDead) return;
             _isDead = true;
             
             MovementManager.Stop();
-            Collider col = GetComponent<Collider>();
-            if (col != null) col.enabled = false;
+            DisableColliders();
 
+            _stateMachine.ChangeState(DeadState);
             Animator.Play(Animator.StringToHash("Death")); 
         }
 
+        /// <summary>
+        /// Interrupts current action and forces stagger state.
+        /// </summary>
         private void HandlePoiseBreak()
         {
             if (_isDead) return;
             _stateMachine.ChangeState(StaggeredState);
         }
 
-        public void DisableColliders()
+        /// <summary>
+        /// Triggers the interactive boss death choice phase.
+        /// </summary>
+        private void HandleSpareableDeath()
         {
-            foreach (var col in GetComponentsInChildren<Collider>())
-                col.enabled = false;
+            if (_isDead) return;
+            _stateMachine.ChangeState(BossDeathChoiceState);
         }
 
-        
-
-#region Gizmos
-
-        private void OnDrawGizmosSelected()
-        {
-            Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-            Gizmos.DrawWireSphere(transform.position, detectionRange);
-            
-            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
-            Gizmos.DrawWireSphere(transform.position, attackRange);
-        }
-#endregion
+        #endregion
     }
 }

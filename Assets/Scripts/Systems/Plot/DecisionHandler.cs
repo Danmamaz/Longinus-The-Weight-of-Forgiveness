@@ -2,119 +2,131 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
     /// <summary>
-    /// Handles presenting decisions to the player and processing their choice
+    /// Handles presenting decisions to the player and processing their choice via UI.
     /// </summary>
     public class DecisionHandler : MonoBehaviour
     {
-        [Header("UI References")]
-        public GameObject decisionPanel;
-        public TextMeshProUGUI contextText;
-        public Button choiceAButton;
-        public Button choiceBButton;
-        public TextMeshProUGUI choiceAText;
-        public TextMeshProUGUI choiceBText;
+        #region Constants & Inspector Variables
 
-        private DecisionNode currentDecision;
+        [Header("UI References")]
+        [SerializeField, Tooltip("Main UI panel containing the decision elements.")]
+        private GameObject _decisionPanel;
+        
+        [SerializeField, Tooltip("Text component displaying the context or lore of the decision.")]
+        private TextMeshProUGUI _contextText;
+        
+        [SerializeField, Tooltip("Button for the positive/mercy choice.")]
+        private Button _choiceAButton;
+        
+        [SerializeField, Tooltip("Button for the negative/cruelty choice.")]
+        private Button _choiceBButton;
+        
+        [SerializeField, Tooltip("Text component for the positive choice label.")]
+        private TextMeshProUGUI _choiceAText;
+        
+        [SerializeField, Tooltip("Text component for the negative choice label.")]
+        private TextMeshProUGUI _choiceBText;
+
+        #endregion
+
+        #region Private Variables
+
+        private DecisionNode _currentDecision;
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void Start()
         {
-            // Hide panel initially
-            if (decisionPanel != null)
+            if (_decisionPanel != null)
             {
-                decisionPanel.SetActive(false);
+                _decisionPanel.SetActive(false);
             }
 
-            // Wire up button events
-            if (choiceAButton != null)
+            if (_choiceAButton != null)
             {
-                choiceAButton.onClick.AddListener(() => OnChoiceSelected(true));
+                _choiceAButton.onClick.AddListener(() => OnChoiceSelected(true));
             }
-            if (choiceBButton != null)
+            
+            if (_choiceBButton != null)
             {
-                choiceBButton.onClick.AddListener(() => OnChoiceSelected(false));
+                _choiceBButton.onClick.AddListener(() => OnChoiceSelected(false));
             }
         }
 
+        #endregion
+
+        #region State/Core Logic
+
         /// <summary>
-        /// Presents a decision to the player
+        /// Presents a specific decision node to the player, updating UI elements accordingly.
         /// </summary>
+        /// <param name="decision">The decision node data to display.</param>
         public void PresentDecision(DecisionNode decision)
         {
             if (decision == null)
             {
-                Debug.LogError("DecisionHandler: Cannot present null decision!");
+                Debug.LogError("[DecisionHandler] Cannot present null decision!");
                 return;
             }
 
-            // Check if conditions are met
-            if (!PlotManager.Instance.AreConditionsMet(decision.conditions))
-            {
-                Debug.Log($"DecisionHandler: Conditions not met for decision '{decision.decisionName}'");
-                return;
-            }
+            _currentDecision = decision;
 
-            currentDecision = decision;
+            if (_contextText != null) _contextText.text = decision.ContextDescription;
+            if (_choiceAText != null) _choiceAText.text = decision.ChoiceAText;
+            if (_choiceBText != null) _choiceBText.text = decision.ChoiceBText;
 
-            // Update UI
-            if (contextText != null)
+            if (_decisionPanel != null)
             {
-                contextText.text = decision.contextDescription;
+                _decisionPanel.SetActive(true);
             }
-            if (choiceAText != null)
-            {
-                choiceAText.text = decision.choiceAText;
-            }
-            if (choiceBText != null)
-            {
-                choiceBText.text = decision.choiceBText;
-            }
-
-            // Show panel
-            if (decisionPanel != null)
-            {
-                decisionPanel.SetActive(true);
-            }
-
         }
 
+        #endregion
+
+        #region Event Listeners/Callbacks
+
         /// <summary>
-        /// Called when player selects a choice
+        /// Processes the player's choice, registers it with the PlotManager, and handles subsequent logic.
         /// </summary>
+        /// <param name="choseA">True if the positive choice was selected, false otherwise.</param>
         private void OnChoiceSelected(bool choseA)
         {
-            if (currentDecision == null) return;
+            if (_currentDecision == null) return;
 
-            // Register with PlotManager
-            PlotManager.Instance.RegisterDecision(currentDecision, choseA);
-
-            // Handle boss-specific logic (mini-game for spare)
-            if (currentDecision.isBossFight && choseA && currentDecision.miniGamePrefab != null)
+            if (PlotManager.Instance != null)
             {
-                StartMiniGame(currentDecision.miniGamePrefab);
+                PlotManager.Instance.RegisterDecision(_currentDecision, choseA);
             }
 
-            // Hide panel
-            if (decisionPanel != null)
+            if (_currentDecision.IsBossFight && choseA && _currentDecision.MiniGamePrefab != null)
             {
-                decisionPanel.SetActive(false);
+                StartMiniGame(_currentDecision.MiniGamePrefab);
             }
 
+            if (_decisionPanel != null)
+            {
+                _decisionPanel.SetActive(false);
+            }
 
-            currentDecision = null;
+            _currentDecision = null;
         }
 
         /// <summary>
-        /// Starts a mini-game (placeholder for your mini-game system)
+        /// Initializes the associated mini-game sequence for specific choices.
         /// </summary>
         private void StartMiniGame(GameObject miniGamePrefab)
         {
-            Debug.Log($"DecisionHandler: Starting mini-game '{miniGamePrefab.name}'");
-            // TODO: Integrate with your mini-game system
-            // Instantiate(miniGamePrefab);
-            // MiniGameManager.Instance.StartMiniGame(miniGamePrefab);
+            if (miniGamePrefab == null) return;
+            
+            // Pragmatic placeholder for future mini-game integration
+            Debug.Log($"[DecisionHandler] Triggering mini-game: {miniGamePrefab.name}");
         }
+
+        #endregion
     }
 }

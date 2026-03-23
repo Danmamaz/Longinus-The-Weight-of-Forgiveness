@@ -1,86 +1,166 @@
-using System;
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using TMPro;
-using System.Collections.Generic;
+using Longinus.Player;
+using Longinus.Interfaces;
 
-public class UIManager : MonoBehaviour
+namespace Longinus.UI
 {
-    [SerializeField] private PlayerStatsManager playerStats;
-    [SerializeField] private InteractionSystem interactionSystem;
-    
-    [Header("UI References")]
-    [Header("Pause References")]
-    [SerializeField] private GameObject pauseMenu;
-    [Header("Player Stats")]
-    [SerializeField] private TMP_Text healthText; 
-    [SerializeField] private TMP_Text staminaText;
-    [Header("Interactables")]
-    [SerializeField] private TMP_Text interactableText;
-
-
-    private bool isPaused = false;
-
-    private void Awake()
+    /// <summary>
+    /// Manages the core in-game user interface, including player stats, interactable prompts, and the pause menu.
+    /// </summary>
+    public class UIManager : MonoBehaviour
     {
-        playerStats.OnDamage.AddListener(ChangeHealthUI);
-        playerStats.OnStaminaChange.AddListener(ChangeStaminaUI);
-        interactionSystem.onInteractibleEnter.AddListener(AddInteractableToList);
-        interactionSystem.onInteractibleLeave.AddListener(RemoveInteractableFromList);
+        #region Constants & Inspector Variables
         
-        pauseMenu.SetActive(isPaused);
-
-    }
-
-    private void ChangeHealthUI(float currentHealth)
-    {
-        currentHealth =  playerStats.CurrentHealth;
-        healthText.text = $"Health: {currentHealth}";
-    }
-
-    private void ChangeStaminaUI()
-    {
-        staminaText.text = $"Stamina: {playerStats.CurrentStamina}";
-    }
-
-    private void AddInteractableToList(List<IInteractable> interactables)
-    {
-        string textToShow = "";
+        [Header("System References")]
+        [SerializeField, Tooltip("Reference to the player's stats manager.")]
+        private PlayerStatsManager _playerStats;
         
-        foreach (IInteractable i in interactables)
+        [SerializeField, Tooltip("Reference to the player's interaction system.")]
+        private InteractionSystem _interactionSystem;
+        
+        [Header("Pause Menu")]
+        [SerializeField, Tooltip("The root game object of the pause menu UI.")]
+        private GameObject _pauseMenu;
+        
+        [Header("Player Stats UI")]
+        [SerializeField, Tooltip("Text component displaying current health.")]
+        private TMP_Text _healthText; 
+        
+        [SerializeField, Tooltip("Text component displaying current stamina.")]
+        private TMP_Text _staminaText;
+        
+        [Header("Interactables UI")]
+        [SerializeField, Tooltip("Text component displaying interaction prompts.")]
+        private TMP_Text _interactableText;
+
+        #endregion
+
+        #region Private Variables
+        
+        private bool _isPaused;
+        private readonly StringBuilder _interactableStringBuilder = new StringBuilder();
+        
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            textToShow += i.GetInteractionText();
+            _isPaused = false;
+            if (_pauseMenu != null) _pauseMenu.SetActive(false);
         }
-        
-        interactableText.text = $"Interactable: {textToShow}";
-    }
-    
-    private void RemoveInteractableFromList(List<IInteractable> interactables)
-    {
-        string textToShow = "";
-        
-        foreach (IInteractable i in interactables)
+
+        private void OnEnable()
         {
-            textToShow += i.GetInteractionText();
+            if (_playerStats != null)
+            {
+                // Subscribing to the refactored standard C# Actions
+                _playerStats.OnDamage += UpdateHealthUI;
+                _playerStats.OnStaminaChange += UpdateStaminaUI;
+                
+                // Initialize UI with current values
+                UpdateHealthUI(_playerStats.CurrentHealth);
+                UpdateStaminaUI();
+            }
+
+            if (_interactionSystem != null)
+            {
+                // Subscribing to the refactored single UnityEvent
+                _interactionSystem.OnInteractablesChanged.AddListener(UpdateInteractableUI);
+            }
         }
+
+        private void OnDisable()
+        {
+            if (_playerStats != null)
+            {
+                _playerStats.OnDamage -= UpdateHealthUI;
+                _playerStats.OnStaminaChange -= UpdateStaminaUI;
+            }
+
+            if (_interactionSystem != null)
+            {
+                _interactionSystem.OnInteractablesChanged.RemoveListener(UpdateInteractableUI);
+            }
+            
+            // Safety net: ensure time is unpaused if the UI object is destroyed during a scene transition
+            Time.timeScale = 1f;
+        }
+
+        #endregion
+
+        #region State/Core Logic
+
+        /// <summary>
+        /// Toggles the game pause state, managing the UI panel and time scale.
+        /// </summary>
+        /// <returns>True if the game is now paused, false otherwise.</returns>
+        public bool TogglePauseMenu()
+        {
+            if (_pauseMenu == null) return false;
+            
+            _isPaused = !_isPaused;
+            _pauseMenu.SetActive(_isPaused);
+            Time.timeScale = _isPaused ? 0f : 1f;
+
+            return _isPaused;
+        }
+
+        #endregion
         
-        interactableText.text = $"Interactable: {textToShow}";
-    }
+        #region Event Listeners/Callbacks
 
-    public bool TogglePauseMenu()
-    {
-        if (pauseMenu == null) return false;
-        isPaused = !isPaused;
+        /// <summary>
+        /// Updates the health display. Triggered when the player takes damage.
+        /// </summary>
+        private void UpdateHealthUI(float currentHealth)
+        {
+            if (_healthText != null)
+            {
+                _healthText.text = $"Health: {Mathf.CeilToInt(currentHealth)}";
+            }
+        }
 
-        pauseMenu.SetActive(isPaused);
+        /// <summary>
+        /// Updates the stamina display. Triggered when stamina is consumed or regenerated.
+        /// </summary>
+        private void UpdateStaminaUI()
+        {
+            if (_staminaText != null && _playerStats != null)
+            {
+                _staminaText.text = $"Stamina: {Mathf.CeilToInt(_playerStats.CurrentStamina)}";
+            }
+        }
 
-        Time.timeScale = isPaused ? 0 : 1;
+        /// <summary>
+        /// Updates the interaction prompt text based on objects currently in range.
+        /// </summary>
+        private void UpdateInteractableUI(List<IInteractable> interactables)
+        {
+            if (_interactableText == null) return;
 
-        return isPaused;
-    }
+            if (interactables == null || interactables.Count == 0)
+            {
+                _interactableText.text = string.Empty;
+                return;
+            }
 
-    public void ResumeGameButton()
-    {
-        TogglePauseMenu();
+            _interactableStringBuilder.Clear();
+            
+            foreach (var interactable in interactables)
+            {
+                if (interactable != null)
+                {
+                    _interactableStringBuilder.AppendLine(interactable.GetInteractionText());
+                }
+            }
+            
+            _interactableText.text = _interactableStringBuilder.ToString().TrimEnd();
+        }
 
+        #endregion
     }
 }

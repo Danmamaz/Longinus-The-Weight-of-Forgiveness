@@ -1,24 +1,55 @@
-using UnityEngine;
-using UnityEngine.Events;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
+using UnityEngine.Events;
 
-namespace PlotBranching
+namespace Longinus.PlotSystem
 {
+    /// <summary>
+    /// Central hub for tracking plot progression, making decisions, and broadcasting world state changes.
+    /// </summary>
     public class PlotManager : MonoBehaviour
     {
-        public static PlotManager Instance { get; private set; }
+        #region Constants & Inspector Variables
 
         [Header("Configuration")]
-        public PlotState plotState;
-        public List<EndingDefinition> possibleEndings = new List<EndingDefinition>();
+        [SerializeField, Tooltip("Reference to the active plot state data.")]
+        private PlotState _plotState;
+
+        [SerializeField, Tooltip("List of all possible endings the player can achieve.")]
+        private List<EndingDefinition> _possibleEndings = new List<EndingDefinition>();
 
         [Header("Events")]
+        [Tooltip("Triggered whenever the player's karma value changes.")]
         public UnityEvent<int> onKarmaChanged;
+        
+        [Tooltip("Triggered when a decision is registered. Passes the Decision ID.")]
         public UnityEvent<string> onChoiceMade;
+        
+        [Tooltip("Triggered when the global world state changes.")]
         public UnityEvent<WorldStateType> onWorldStateChanged;
+        
+        [Tooltip("Triggered when an ending condition is met and executed.")]
         public UnityEvent<EndingDefinition> onEndingTriggered;
+        
+        [Tooltip("Triggered when a physical path or door is unlocked. Passes the Path ID.")]
         public UnityEvent<string> onPathOpened;
+
+        [Header("Plot Data")]
+        [Tooltip("Drag all existing DecisionNode objects from the Project window here")]
+        [SerializeField] private List<DecisionNode> allDecisionNodes = new List<DecisionNode>();
+        private Dictionary<string, DecisionNode> _nodeDictionary;
+
+        #endregion
+
+        #region Public Properties
+
+        public static PlotManager Instance { get; private set; }
+        public PlotState PlotState => _plotState;
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void Awake()
         {
@@ -27,144 +58,116 @@ namespace PlotBranching
                 Destroy(gameObject);
                 return;
             }
+            
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            if (plotState == null)
+            if (_plotState == null)
             {
-                Debug.LogError("PlotManager: PlotState is not assigned!");
+                Debug.LogError("[PlotManager] Critical Error: PlotState is not assigned!");
             }
+
+            InitializeNodeDictionary();
         }
 
+        #endregion
+
+        #region State/Core Logic
+
+        /// <summary>
+        /// Registers a player's choice and executes all associated consequences.
+        /// </summary>
         public void RegisterDecision(DecisionNode decision, bool choseA)
         {
-            if (decision == null) return;
+            if (decision == null || _plotState == null) return;
 
-            // Track decision
-            plotState.madeDecisionIDs.Add(decision.decisionID);
-            plotState.chosenOptions.Add(choseA ? "A" : "B");
+            _plotState.AddDecision(decision.DecisionID, choseA ? "A" : "B");
+            onChoiceMade?.Invoke(decision.DecisionID);
 
-            // Apply ConsequenceSOs
-            List<Consequence> Consequences = choseA ? decision.choiceAConsequences : decision.choiceBConsequences;
-            foreach (var consequence in Consequences)
+            var consequences = choseA ? decision.ChoiceAConsequences : decision.ChoiceBConsequences;
+            
+            if (consequences != null)
             {
-                ApplyConsequence(consequence);
+                foreach (var consequence in consequences)
+                {
+                    consequence.Apply(this);
+                }
             }
-
-            onChoiceMade?.Invoke(decision.decisionID);
-            Debug.Log($"PlotManager: Decision '{decision.decisionName}' made. Choice: {(choseA ? "A" : "B")}. Karma: {plotState.currentKarma}");
         }
 
-        private void ApplyConsequence(Consequence consequence)
-        {
-            if (consequence == null) return;
-
-            consequence.Apply(this);
-        }
-
+        /// <summary>
+        /// Modifies the player's karma and broadcasts the change.
+        /// </summary>
         public void ChangeKarma(int amount)
         {
-            // Use the absolute constants from the new PlotState
-            plotState.ChangeKarma(amount);
-            onKarmaChanged?.Invoke(plotState.currentKarma);
+            if (_plotState == null) return;
+
+            _plotState.ChangeKarma(amount);
+            onKarmaChanged?.Invoke(_plotState.CurrentKarma);
         }
 
+        /// <summary>
+        /// Updates the global world state and broadcasts the change.
+        /// </summary>
         public void ChangeWorldState(WorldStateType newState)
         {
-            plotState.currentWorldState = newState;
+            if (_plotState == null) return;
+
+            _plotState.SetWorldState(newState);
             onWorldStateChanged?.Invoke(newState);
         }
 
-        private void UnlockBoss(string bossID)
+        /// <summary>
+        /// Unlocks a path or door and broadcasts the event.
+        /// </summary>
+        public void OpenPath(string pathId)
         {
-            if (!plotState.unlockedBossIDs.Contains(bossID))
-            {
-                plotState.unlockedBossIDs.Add(bossID);
-            }
-        }
-        
-        private void ChangeNPCAttitude(string npcID, NPCAttitude attitude)
-        {
-            if (plotState.npcAttitudes.ContainsKey(npcID))
-                plotState.npcAttitudes[npcID] = attitude;
-            else
-                plotState.npcAttitudes.Add(npcID, attitude);
+            if (string.IsNullOrEmpty(pathId) || _plotState == null) return;
+
+            _plotState.AddOpenedPath(pathId);
+            onPathOpened?.Invoke(pathId);
         }
 
-        public bool AreConditionsMet(List<DecisionCondition> conditions)
-        {
-            if (conditions == null || conditions.Count == 0) return true;
-            foreach (var condition in conditions)
-            {
-                if (!IsConditionMet(condition)) return false;
-            }
-            return true;
-        }
-
-        private bool IsConditionMet(DecisionCondition condition)
-        {
-            switch (condition.type)
-            {
-                case ConditionType.PreviousChoiceMade:
-                    return plotState.madeDecisionIDs.Contains(condition.targetID);
-
-                case ConditionType.KarmaThreshold:
-                    return CompareValue(plotState.currentKarma, condition.comparison, condition.value);
-
-                default:
-                    return true; // Placeholder for other conditions
-            }
-        }
-
-        private bool CompareValue(float actual, ComparisonOperator op, float target)
-        {
-            switch (op)
-            {
-                case ComparisonOperator.GreaterThan: return actual > target;
-                case ComparisonOperator.LessThan: return actual < target;
-                case ComparisonOperator.EqualTo: return Mathf.Approximately(actual, target);
-                case ComparisonOperator.GreaterOrEqual: return actual >= target;
-                case ComparisonOperator.LessOrEqual: return actual <= target;
-                default: return false;
-            }
-        }
-
+        /// <summary>
+        /// Evaluates the current plot state and triggers the appropriate ending.
+        /// </summary>
         public void TriggerEnding()
         {
             EndingDefinition ending = DetermineEnding();
 
             if (ending != null)
             {
-                Debug.Log($"PlotManager: Triggering ending '{ending.endingName}'");
+                Debug.Log($"[PlotManager] Triggering ending: {ending.EndingName}");
                 onEndingTriggered?.Invoke(ending);
-                ending.onEndingTriggered?.Invoke();
+                ending.OnEndingTriggered?.Invoke();
             }
             else
             {
-                Debug.LogError("PlotManager: No valid ending found!");
+                Debug.LogError("[PlotManager] No valid ending found based on current plot state!");
             }
         }
 
+        /// <summary>
+        /// Determines which ending should play based on karma and conditional logic.
+        /// </summary>
         private EndingDefinition DetermineEnding()
         {
-            // Simple check: Good -> Bad -> Neutral
-            // This replaces the old "percentage" check
-            
-            if (plotState.IsGoodEnding())
+            if (_plotState == null || _possibleEndings == null) return null;
+
+            if (_plotState.IsGoodEnding())
             {
-                return possibleEndings.FirstOrDefault(e => e.endingType == Endings.Good);
+                return _possibleEndings.FirstOrDefault(e => e.EndingType == Endings.Good);
             }
             
-            if (plotState.IsBadEnding())
+            if (_plotState.IsBadEnding())
             {
-                return possibleEndings.FirstOrDefault(e => e.endingType == Endings.Bad);
+                return _possibleEndings.FirstOrDefault(e => e.EndingType == Endings.Bad);
             }
 
-            // Fallback to finding one that matches the threshold
-            foreach (var ending in possibleEndings.OrderByDescending(e => e.karmaThreshold))
+            // Fallback: evaluate absolute karma thresholds and specific conditions
+            foreach (var ending in _possibleEndings.OrderByDescending(e => e.KarmaThreshold))
             {
-                if (plotState.currentKarma >= ending.karmaThreshold && 
-                    AreConditionsMet(ending.additionalConditions))
+                if (_plotState.CurrentKarma >= ending.KarmaThreshold && AreConditionsMet(ending.AdditionalConditions))
                 {
                     return ending;
                 }
@@ -172,5 +175,103 @@ namespace PlotBranching
             
             return null;
         }
+
+        /// <summary>
+        /// Checks if a set of plot conditions are satisfied.
+        /// </summary>
+        private bool AreConditionsMet(IReadOnlyList<DecisionCondition> conditions)
+        {
+            if (conditions == null || conditions.Count == 0) return true;
+
+            foreach (var condition in conditions)
+            {
+                if (!EvaluateCondition(condition)) return false;
+            }
+            
+            return true;
+        }
+
+        /// <summary>
+        /// Evaluates a single plot condition against the current PlotState.
+        /// </summary>
+        private bool EvaluateCondition(DecisionCondition condition)
+        {
+            if (_plotState == null) return false;
+
+            switch (condition.ConditionType)
+            {
+                case ConditionType.KarmaAbove:
+                    return _plotState.IsKarmaAbove(condition.TargetValue);
+                
+                case ConditionType.KarmaBelow:
+                    return _plotState.IsKarmaBelow(condition.TargetValue);
+                
+                case ConditionType.DecisionMade:
+                    return _plotState.MadeDecisionIDs.Contains(condition.TargetID);
+                
+                case ConditionType.DecisionNotMade:
+                    return !_plotState.MadeDecisionIDs.Contains(condition.TargetID);
+                
+                case ConditionType.SpecificChoiceMade:
+                    // Avoid LINQ or memory allocation by running a fast raw loop
+                    for (int i = 0; i < _plotState.MadeDecisionIDs.Count; i++)
+                    {
+                        if (_plotState.MadeDecisionIDs[i] == condition.TargetID)
+                        {
+                            return _plotState.ChosenOptions[i] == condition.RequiredChoice;
+                        }
+                    }
+                    return false;
+                
+                case ConditionType.HasItem:
+                    // Pragmatic placeholder: To be implemented when Inventory System is ready
+                    return false;
+                
+                case ConditionType.BossDefeated:
+                    return _plotState.UnlockedBossIDs.Contains(condition.TargetID);
+                
+                default: 
+                    return false;
+            }
+        }
+
+        private void InitializeNodeDictionary()
+        {
+            _nodeDictionary = new Dictionary<string, DecisionNode>();
+
+            foreach (var node in allDecisionNodes)
+            {
+                if (node != null && !string.IsNullOrEmpty(node.DecisionID)) 
+                {
+                    if (!_nodeDictionary.ContainsKey(node.DecisionID))
+                    {
+                        _nodeDictionary.Add(node.DecisionID, node);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[PlotManager] Dublicate ID detected: {node.DecisionID}. Ignoring.");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns DecisionNode by his ID.
+        /// </summary>
+        public DecisionNode GetNodeByID(string id)
+        {
+            if (string.IsNullOrEmpty(id)) 
+                return null;
+
+            if (_nodeDictionary.TryGetValue(id, out DecisionNode foundNode))
+            {
+                return foundNode;
+            }
+
+            Debug.LogError($"[PlotManager] Attempt to search nonexistent DecisionNode with ID: {id}");
+            return null;
+        }
+
+        #endregion
     }
 }

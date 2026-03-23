@@ -1,40 +1,77 @@
-using UnityEditor;
-using PlotBranching;
+using UnityEngine;
 
-[System.Serializable]
-public class KarmaChange : Consequence
+namespace Longinus.PlotSystem
 {
-    public int amount;
-
-    public override void Apply(PlotManager context)
+    /// <summary>
+    /// Modifies the player's karma value.
+    /// </summary>
+    [System.Serializable]
+    public class KarmaChange : Consequence
     {
-        context.ChangeKarma(amount);
-    }
-}
+        #region Inspector Variables
+        
+        [SerializeField, Tooltip("Amount of karma to add or subtract.")]
+        private int _amount;
+        
+        #endregion
 
-public class ChangeWorldState : Consequence
-{
-    public WorldStateType worldState;
-
-    public override void Apply(PlotManager context)
-    {
-        context.ChangeWorldState(worldState);
-    }
-}
-
-public class OpenPath : Consequence
-{
-    public string pathID;
-    public override void Apply(PlotManager context)
-    {
-        if (!string.IsNullOrEmpty(pathID))
+        #region State/Core Logic
+        
+        public override void Apply(PlotManager context)
         {
-            if (!context.plotState.openedPathIDs.Contains(pathID))
-            {
-                context.plotState.openedPathIDs.Add(pathID);
-            }
-            context.onPathOpened?.Invoke(pathID); 
+            context.ChangeKarma(_amount);
         }
+        
+        #endregion
     }
-    
+
+    /// <summary>
+    /// Alters the global world state.
+    /// </summary>
+    [System.Serializable]
+    public class ChangeWorldState : Consequence
+    {
+        #region Inspector Variables
+        
+        [SerializeField, Tooltip("The new world state to transition into.")]
+        private WorldStateType _worldState;
+        
+        #endregion
+
+        #region State/Core Logic
+        
+        public override void Apply(PlotManager context)
+        {
+            context.ChangeWorldState(_worldState);
+        }
+        
+        #endregion
+    }
+
+    /// <summary>
+    /// Unlocks a previously blocked path or door in the world.
+    /// </summary>
+    [System.Serializable]
+    public class OpenPath : Consequence
+    {
+        #region Inspector Variables
+        
+        [SerializeField, Tooltip("Unique ID of the path or door to open.")]
+        private string _pathId;
+        
+        #endregion
+
+        #region State/Core Logic
+        
+        public override void Apply(PlotManager context)
+        {
+            if (!string.IsNullOrEmpty(_pathId))
+            {
+                // Delegating to PlotManager to safely handle state mutation and event invocation
+                context.OpenPath(_pathId); 
+            }
+        }
+        
+        #endregion
+    }
 }

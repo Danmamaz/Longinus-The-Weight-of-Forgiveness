@@ -1,40 +1,61 @@
 using UnityEngine;
-using PlotBranching;
+using Longinus.PlotSystem;
+using System.Linq;
 
-public class Door : MonoBehaviour
+namespace Longinus.Environment
 {
-    [Tooltip("Унікальний ID, який має збігатися з pathID у ConsequenceSO")]
-    public string pathID; 
-
-    private void Start()
+    /// <summary>
+    /// Represents a physical barrier that responds to plot consequences (e.g., opens when a decision is made).
+    /// </summary>
+    public class Door : MonoBehaviour
     {
-        if (PlotManager.Instance != null)
+        #region Constants & Inspector Variables
+        
+        [Header("Configuration")]
+        [SerializeField, Tooltip("Unique ID that must match the pathID in the ConsequenceSO.")]
+        private string _pathId; 
+        
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Start()
         {
-            // Підписуємося на подію відкриття в реальному часі
+            if (PlotManager.Instance == null) return;
+
             PlotManager.Instance.onPathOpened.AddListener(OnPathOpened);
             
-            // Перевіряємо, чи були двері відкриті в попередніх сесіях (завантаження збереження)
-            if (PlotManager.Instance.plotState.openedPathIDs.Contains(pathID))
+            // Added defensive null-check for plotState
+            if (PlotManager.Instance.PlotState != null && 
+                PlotManager.Instance.PlotState.OpenedPathIDs.Contains(_pathId))
             {
                 gameObject.SetActive(false);
             }
         }
-    }
 
-    private void OnPathOpened(string openedID)
-    {
-        if (pathID == openedID)
+        private void OnDestroy()
         {
-            gameObject.SetActive(false);
+            if (PlotManager.Instance != null)
+            {
+                PlotManager.Instance.onPathOpened.RemoveListener(OnPathOpened);
+            }
         }
-    }
 
-    private void OnDestroy()
-    {
-        // Завжди відписуйтесь від подій, щоб уникнути витоків пам'яті
-        if (PlotManager.Instance != null)
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Hides the door when the corresponding plot path is unlocked.
+        /// </summary>
+        private void OnPathOpened(string openedID)
         {
-            PlotManager.Instance.onPathOpened.RemoveListener(OnPathOpened);
+            if (_pathId == openedID)
+            {
+                gameObject.SetActive(false);
+            }
         }
+        
+        #endregion
     }
 }
