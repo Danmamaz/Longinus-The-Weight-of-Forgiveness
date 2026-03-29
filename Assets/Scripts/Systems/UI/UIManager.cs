@@ -162,5 +162,14 @@ namespace Longinus.UI
         }
 
         #endregion
+
+        #region Buttons
+
+        /// <summary>
+        /// Functionality of a resume button
+        /// </summary>
+        public void ResumeButton() {TogglePauseMenu();}
+
+        #endregion
     }
 }
