@@ -87,6 +87,7 @@ namespace Longinus.Player
                 OnStaminaChange?.Invoke();
             }
         }
+        
 
         /// <summary>
         /// Attempts to consume a specified amount of stamina. Fails if insufficient.
