@@ -8,6 +8,7 @@ namespace Longinus.InGameItems
     /// </summary>
     public class TrainingDummy : MonoBehaviour, IDamageable
     {
+        [SerializeField] private Animator animator;
         #region Event Listeners/Callbacks
         
         /// <summary>
@@ -15,8 +16,10 @@ namespace Longinus.InGameItems
         /// </summary>
         public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
         {
+            animator.SetTrigger("gotHit");
             // This is the only acceptable use of Debug.Log in production logic, as it's specifically a testing dummy.
             Debug.Log($"[TrainingDummy] Took {amount} damage (Poise: {poiseDamage}) at {hitPoint}");
+
         }
         
         #endregion
