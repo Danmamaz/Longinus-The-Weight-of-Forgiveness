@@ -85,14 +85,14 @@ namespace Longinus.EnemySystem
         /// </summary>
         public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
         {
-            if (_isDead) return;
+            // if (_isDead) return;
 
             // Intercept hits during the choice phase to trigger the final execution rather than standard damage calculation.
-            if (IsInChoicePhase)
-            {
-                OnChoicePhaseDamaged?.Invoke();
-                return;
-            }
+            // if (IsInChoicePhase)
+            // {
+            //     OnChoicePhaseDamaged?.Invoke();
+            //     return;
+            // }
 
             CurrentHealth -= amount;
             CurrentPoise -= poiseDamage;

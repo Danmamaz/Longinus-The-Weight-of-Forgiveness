@@ -4,6 +4,7 @@ using UnityEngine;
 using TMPro;
 using Longinus.Player;
 using Longinus.Interfaces;
+using Longinus.PlotSystem;
 
 namespace Longinus.UI
 {
@@ -17,6 +18,7 @@ namespace Longinus.UI
         [Header("System References")]
         [SerializeField, Tooltip("Reference to the player's stats manager.")]
         private PlayerStatsManager _playerStats;
+        [SerializeField] private DecisionHandler dh;
         
         [SerializeField, Tooltip("Reference to the player's interaction system.")]
         private InteractionSystem _interactionSystem;
@@ -107,6 +109,30 @@ namespace Longinus.UI
             Time.timeScale = _isPaused ? 0f : 1f;
 
             return _isPaused;
+        }
+
+        /// <summary>
+        /// Presents a specific decision node to the player, updating UI elements accordingly.
+        /// </summary>
+        /// <param name="decision">The decision node data to display.</param>
+        public void PresentDecision(DecisionNode decision)
+        {
+            if (decision == null)
+            {
+                Debug.LogError("[DecisionHandler] Cannot present null decision!");
+                return;
+            }
+
+            dh._currentDecision = decision;
+
+            if (dh._contextText != null) dh._contextText.text = decision.ContextDescription;
+            if (dh._choiceAText != null) dh._choiceAText.text = decision.ChoiceAText;
+            if (dh._choiceBText != null) dh._choiceBText.text = decision.ChoiceBText;
+
+            if (dh._decisionPanel != null)
+            {
+                dh._decisionPanel.SetActive(true);
+            }
         }
 
         #endregion

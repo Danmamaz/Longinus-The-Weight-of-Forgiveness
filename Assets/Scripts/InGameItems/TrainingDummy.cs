@@ -1,27 +1,32 @@
 using UnityEngine;
-using Longinus.Interfaces;
+using Longinus.EnemySystem; // Додано для доступу до EnemyStatsManager
 
 namespace Longinus.InGameItems
 {
-    /// <summary>
-    /// A simple target dummy used strictly for testing combat interactions and damage registration.
-    /// </summary>
-    public class TrainingDummy : MonoBehaviour, IDamageable
+    [RequireComponent(typeof(EnemyStatsManager))]
+    public class TrainingDummy : MonoBehaviour
     {
         [SerializeField] private Animator animator;
-        #region Event Listeners/Callbacks
-        
-        /// <summary>
-        /// Logs incoming damage and poise damage to the console for testing purposes.
-        /// </summary>
-        public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
-        {
-            animator.SetTrigger("gotHit");
-            // This is the only acceptable use of Debug.Log in production logic, as it's specifically a testing dummy.
-            Debug.Log($"[TrainingDummy] Took {amount} damage (Poise: {poiseDamage}) at {hitPoint}");
+        private EnemyStatsManager _statsManager;
 
+        private void Awake()
+        {
+            _statsManager = GetComponent<EnemyStatsManager>();
+            _statsManager.OnDamageTaken += HandleDamage;
         }
-        
-        #endregion
+
+        private void OnDestroy()
+        {
+            if (_statsManager != null)
+                _statsManager.OnDamageTaken -= HandleDamage;
+        }
+
+        private void HandleDamage(float amount, float currentHealth)
+        {
+            if (animator != null) 
+                animator.SetTrigger("gotHit");
+                
+            Debug.Log($"[TrainingDummy] Took {amount} damage. Remaining HP: {currentHealth}");
+        }
     }
 }

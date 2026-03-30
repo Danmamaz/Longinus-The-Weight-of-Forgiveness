@@ -29,7 +29,7 @@ namespace Longinus.Environment
             if (PlotManager.Instance.PlotState != null && 
                 PlotManager.Instance.PlotState.OpenedPathIDs.Contains(_pathId))
             {
-                gameObject.SetActive(false);
+                gameObject.GetComponent<Animator>().SetTrigger("Open");
             }
         }
 

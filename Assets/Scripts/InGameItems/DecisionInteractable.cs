@@ -1,50 +1,86 @@
 using UnityEngine;
-using Longinus.PlotSystem;
-using Longinus.Interfaces;
+using Longinus.EnemySystem;
 
 namespace Longinus.InGameItems
 {
-    /// <summary>
-    /// An interactable object that triggers a plot decision when the player engages with it.
-    /// </summary>
-    public class DecisionInteractable : MonoBehaviour, IInteractable
+    [RequireComponent(typeof(EnemyStatsManager))]
+    public class DecisionInteractable : MonoBehaviour
     {
-        #region Constants & Inspector Variables
-        
-        [Header("Configuration")]
-        [SerializeField, Tooltip("The specific decision node this object will trigger.")]
-        private DecisionNode _decisionToTrigger;
-        
-        [SerializeField, Tooltip("Reference to the handler that manages the UI and logic for this decision.")] 
-        private DecisionHandler _decisionHandler; 
-        
-        #endregion
+        [Header("Двері для вибору")]
+        [SerializeField] private Animator _leftDoorAnimator;
+        [SerializeField] private Animator _rightDoorAnimator;
+        [SerializeField] private GameObject _blueFlash;
+        [SerializeField] private GameObject _redFlash;
 
-        #region Event Listeners/Callbacks
+        private EnemyStatsManager _enemyStats;
+        private bool _isWaitingForChoice = false;
+        private Collider _collider;
+        private int _originalLayer;
 
-        /// <summary>
-        /// Executes the interaction logic, presenting the decision to the player.
-        /// </summary>
-        public void Interact()
+        private void Awake()
         {
-            if (_decisionHandler != null && _decisionToTrigger != null)
+            _enemyStats = GetComponent<EnemyStatsManager>();
+            _collider = GetComponent<Collider>();
+            _originalLayer = gameObject.layer; // Запам'ятовуємо шар (Enemy)
+
+            _enemyStats.OnSpareableDeath += StartChoicePhase;
+            _enemyStats.OnDamageTaken += HandleFollowUpHit;
+        }
+
+        private void OnDestroy()
+        {
+            if (_enemyStats != null)
             {
-                _decisionHandler.PresentDecision(_decisionToTrigger);
-            }
-            else
-            {
-                Debug.LogError($"[DecisionInteractable] Missing DecisionHandler or DecisionNode assignment on {gameObject.name}.");
+                _enemyStats.OnSpareableDeath -= StartChoicePhase;
+                _enemyStats.OnDamageTaken -= HandleFollowUpHit;
             }
         }
 
-        /// <summary>
-        /// Provides the UI text prompt for this interaction.
-        /// </summary>
-        public string GetInteractionText()
+        private void StartChoicePhase()
         {
-            return "Press E to Decide";
+            _isWaitingForChoice = true;
+            
+            // 1. Таймер через Invoke не залежить від Update()
+            Invoke(nameof(ExecuteSpareChoice), 5f); 
+
+            // 2. ХАК: Даємо машині станів 0.1 сек на вимкнення коллайдера, а потім брутально вмикаємо його назад
+            Invoke(nameof(ForceEnableHitbox), 0.1f);
         }
-        
-        #endregion
+
+        private void ForceEnableHitbox()
+        {
+            if (_collider != null) _collider.enabled = true;
+            gameObject.layer = _originalLayer; // Повертаємо шар "Enemy"
+            Debug.Log("[Decision] Коллайдер і шар примусово відновлено. Бий його!");
+        }
+
+        private void HandleFollowUpHit(float damage, float currentHealth)
+        {
+            if (_isWaitingForChoice)
+            {
+                CancelInvoke(nameof(ExecuteSpareChoice)); // Зупиняємо таймер 5 секунд
+                ExecuteKillChoice();
+            }
+        }
+
+        private void ExecuteKillChoice()
+        {
+            _isWaitingForChoice = false;
+            Debug.Log("[Decision] Вибір: ДОБИТИ. Відкриваємо ліві двері.");
+            _redFlash.SetActive(true);
+            _enemyStats.ExecuteFinalDeath(); 
+            if (_leftDoorAnimator != null) _leftDoorAnimator.SetTrigger("Open");
+        }
+
+        private void ExecuteSpareChoice()
+        {
+            if (!_isWaitingForChoice) return;
+            
+            _blueFlash.SetActive(true);
+            _isWaitingForChoice = false;
+            Debug.Log("[Decision] Час вийшов. Вибір: ПОЩАДА. Відкриваємо праві двері.");
+            
+            if (_rightDoorAnimator != null) _rightDoorAnimator.SetTrigger("Open");
+        }
     }
 }

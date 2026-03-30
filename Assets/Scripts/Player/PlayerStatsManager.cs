@@ -34,7 +34,8 @@ namespace Longinus.Player
         #endregion
 
         #region Public Properties
-        
+
+        public float MaxHealth => _maxHealth;
         public float CurrentHealth { get; private set; }
         public float CurrentStamina { get; private set; }
         
