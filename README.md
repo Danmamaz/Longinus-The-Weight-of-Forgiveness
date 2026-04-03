@@ -1,4 +1,4 @@
-![Logo](https://github.com/Danmamaz/Longinus-The-Weight-of-Forgiveness/blob/main/Assets/Visual%20Related/UI/Logo.png)
+![Logo](Assets/Visuals/UI/Logo.png)
 ![Unity Version](https://img.shields.io/badge/Unity-6000.0.x-blue.svg)
 ![Genre](https://img.shields.io/badge/Genre-Souls--like-red.svg)
 ![Status](https://img.shields.io/badge/Status-Technical_Vertical_Slice-orange.svg)
