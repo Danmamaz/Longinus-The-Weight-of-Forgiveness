@@ -5,7 +5,7 @@ using Longinus.Interfaces;
 namespace Longinus.Player
 {
     /// <summary>
-    /// Manages player health, stamina, and processes incoming damage.
+    /// Manages player health, stamina, mana, ultimate charge, and processes incoming damage.
     /// </summary>
     public class PlayerStatsManager : MonoBehaviour, IDamageable
     {
@@ -24,6 +24,13 @@ namespace Longinus.Player
         [SerializeField, Tooltip("Delay in seconds before stamina begins to regenerate after consumption.")] 
         private float _staminaRegenDelay = 1.2f;
 
+        [Header("Magic & Ultimate Config")]
+        [SerializeField, Tooltip("Maximum mana for spells/special abilities.")] 
+        private float _maxMana = 50f;
+
+        [SerializeField, Tooltip("Maximum charge needed to use the ultimate ability.")] 
+        private float _maxUltimate = 100f;
+
         #endregion
 
         #region Private Variables
@@ -37,15 +44,24 @@ namespace Longinus.Player
 
         public float MaxHealth => _maxHealth;
         public float CurrentHealth { get; private set; }
+        
+        public float MaxStamina => _maxStamina;
         public float CurrentStamina { get; private set; }
+
+        public float MaxMana => _maxMana;
+        public float CurrentMana { get; private set; }
+
+        public float MaxUltimate => _maxUltimate;
+        public float CurrentUltimate { get; private set; }
         
         #endregion
 
         #region Events
         
-        // Switched from UnityEvent to standard C# Actions for performance and consistency
         public event Action<float> OnDamage;
         public event Action OnStaminaChange;
+        public event Action OnManaChange;
+        public event Action OnUltimateChange;
         public event Action OnDeath;
         
         #endregion
@@ -56,6 +72,9 @@ namespace Longinus.Player
         {
             CurrentHealth = _maxHealth;
             CurrentStamina = _maxStamina;
+            CurrentMana = _maxMana;
+            CurrentUltimate = 0f; // Ульта зазвичай накопичується з нуля
+            
             _staminaRegenerationTimer = 0f;
             _isDead = false;
         }
@@ -71,9 +90,6 @@ namespace Longinus.Player
 
         #region State/Core Logic
 
-        /// <summary>
-        /// Processes stamina regeneration over time after the delay has passed.
-        /// </summary>
         private void HandleStaminaRegen()
         {
             if (_staminaRegenerationTimer < _staminaRegenDelay)
@@ -89,12 +105,6 @@ namespace Longinus.Player
             }
         }
         
-
-        /// <summary>
-        /// Attempts to consume a specified amount of stamina. Fails if insufficient.
-        /// </summary>
-        /// <param name="amount">Amount of stamina to consume.</param>
-        /// <returns>True if successfully consumed, false otherwise.</returns>
         public bool TryConsumeStamina(float amount)
         {
             if (_isDead || CurrentStamina <= 0f) return false;
@@ -109,8 +119,53 @@ namespace Longinus.Player
         }
 
         /// <summary>
-        /// Applies damage to the player. Triggers death if health drops to or below zero.
+        /// Attempts to consume a specified amount of mana. Fails if insufficient.
         /// </summary>
+        public bool TryConsumeMana(float amount)
+        {
+            if (_isDead || CurrentMana < amount) return false;
+
+            CurrentMana -= amount;
+            OnManaChange?.Invoke();
+            
+            return true;
+        }
+
+        /// <summary>
+        /// Restores mana by a specific amount (e.g., from a potion).
+        /// </summary>
+        public void RestoreMana(float amount)
+        {
+            if (_isDead) return;
+
+            CurrentMana = Mathf.Min(_maxMana, CurrentMana + amount);
+            OnManaChange?.Invoke();
+        }
+
+        /// <summary>
+        /// Adds charge to the ultimate meter (e.g., when dealing damage or taking damage).
+        /// </summary>
+        public void AddUltimateCharge(float amount)
+        {
+            if (_isDead || CurrentUltimate >= _maxUltimate) return;
+
+            CurrentUltimate = Mathf.Min(_maxUltimate, CurrentUltimate + amount);
+            OnUltimateChange?.Invoke();
+        }
+
+        /// <summary>
+        /// Consumes the entire ultimate meter if it is fully charged.
+        /// </summary>
+        public bool TryUseUltimate()
+        {
+            if (_isDead || CurrentUltimate < _maxUltimate) return false;
+
+            CurrentUltimate = 0f;
+            OnUltimateChange?.Invoke();
+            
+            return true;
+        }
+
         public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
         {
             if (_isDead) return;
@@ -124,9 +179,6 @@ namespace Longinus.Player
             }
         }
 
-        /// <summary>
-        /// Handles the irreversible death state of the player.
-        /// </summary>
         private void Die()
         {
             if (_isDead) return;
