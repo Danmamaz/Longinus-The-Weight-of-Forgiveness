@@ -222,8 +222,7 @@ namespace Longinus.Player
         {
             _ctx.Locomotion.StopMovement();
             
-            bool isHeavy = _ctx.HeavyAttackTriggered; 
-            bool started = _ctx.CombatManager.AttemptAttack(isHeavy);
+            bool started = _ctx.CombatManager.AttemptAttack(); 
             
             _ctx.ResetAttackTriggers();
 
@@ -235,6 +234,13 @@ namespace Longinus.Player
 
         public override void UpdateState()
         {
+            if (_ctx.AttackTriggered)
+            {
+                _ctx.CombatManager.AttemptAttack();
+                
+                _ctx.ResetAttackTriggers(); 
+            }
+
             if (!_ctx.CombatManager.IsAttacking) 
             {
                 CheckSwitchStates();
@@ -258,10 +264,6 @@ namespace Longinus.Player
         
         #endregion
     }
-
-    /// <summary>
-    /// Synchronous interaction state for objects that require animation locking (e.g., doors, levers).
-    /// </summary>
     public class PlayerInteractState : PlayerBaseState
     {
         #region Private Variables

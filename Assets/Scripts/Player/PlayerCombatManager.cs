@@ -14,11 +14,12 @@ namespace Longinus.Player
         [SerializeField, Tooltip("Reference to the player's weapon damage collider.")]
         private Collider _weaponCollider;
 
-        [SerializeField, Tooltip("Stamina consumed when performing a light attack.")]
-        private float _lightAttackStaminaCost = 10f;
+        [SerializeField, Tooltip("Stamina consumed when performing an attack.")]
+        private float _baseStaminaCost = 10f;
 
-        [SerializeField, Tooltip("Stamina consumed when performing a heavy attack.")]
-        private float _heavyAttackStaminaCost = 20f;
+        [Header("Combo Data")]
+        [SerializeField, Tooltip("Array of attacks, that formulates current combo")]
+        private AttackDefinition[] _currentCombo;
 
         #endregion
 
@@ -27,9 +28,9 @@ namespace Longinus.Player
         private Animator _animator;
         private PlayerStatsManager _statsManager;
 
-        // Cached animator hashes for performance optimization
-        private readonly int _animLightAttackHash = Animator.StringToHash("LightAttack");
-        private readonly int _animHeavyAttackHash = Animator.StringToHash("HeavyAttack");
+        private int _comboIndex = 0;
+        private bool _canQueueNextAttack = false;
+        private bool _nextInputReceived = false;
 
         #endregion
 
@@ -62,28 +63,78 @@ namespace Longinus.Player
         #region State/Core Logic
 
         /// <summary>
-        /// Attempts to execute an attack, checking and consuming stamina if successful.
+        /// Called whenever attack needs to be performed.
         /// </summary>
-        /// <param name="isHeavy">True for a heavy attack, false for a light attack.</param>
-        /// <returns>True if the attack was successfully initiated, false if stamina was insufficient.</returns>
-        public bool AttemptAttack(bool isHeavy)
+        public bool AttemptAttack()
         {
-            float cost = isHeavy ? _heavyAttackStaminaCost : _lightAttackStaminaCost;
+            if (_currentCombo == null || _currentCombo.Length == 0) return false;
 
-            if (!_statsManager.TryConsumeStamina(cost))
+            if (IsAttacking)
+            {
+                if (_canQueueNextAttack && _comboIndex < _currentCombo.Length - 1)
+                {
+                    _nextInputReceived = true;
+                }
+                return false; 
+            }
+
+            _comboIndex = 0;
+            return ExecuteAttack(_comboIndex);
+        }
+
+        /// <summary>
+        /// Physical start of an attack from the array.
+        /// </summary>
+        private bool ExecuteAttack(int index)
+        {
+            var attack = _currentCombo[index];
+            float currentCost = _baseStaminaCost * attack.staminaMultiplier;
+
+            if (!_statsManager.TryConsumeStamina(currentCost))
             {
                 return false;
             }
 
             IsAttacking = true;
-            _animator.SetTrigger(isHeavy ? _animHeavyAttackHash : _animLightAttackHash);
+            _canQueueNextAttack = false;
+            _nextInputReceived = false;
+            
+            _animator.CrossFade(attack.AnimationHash, 0.1f);
             
             return true;
         }
 
         #endregion
 
-        #region Event Listeners/Callbacks
+        #region Animation Events
+
+        /// <summary>
+        /// Called via Animation Event durring the attack.
+        /// </summary>
+        public void OpenComboWindow()
+        {
+            _canQueueNextAttack = true;
+        }
+
+        /// <summary>
+        /// Called via Animation Event durring the moment, when the weapon is returning.
+        /// </summary>
+        public void CloseComboWindow()
+        {
+            _canQueueNextAttack = false;
+        }
+
+        /// <summary>
+        /// If the player clicked - attack. If not - animation stops.
+        /// </summary>
+        public void TransitionToNextAttack()
+        {
+            if (_nextInputReceived && _comboIndex < _currentCombo.Length - 1)
+            {
+                _comboIndex++;
+                ExecuteAttack(_comboIndex);
+            }
+        }
 
         /// <summary>
         /// Activates the weapon's damage hitbox. Usually triggered via Animation Events.
