@@ -31,12 +31,15 @@ namespace Longinus.Player
         private int _comboIndex = 0;
         private bool _canQueueNextAttack = false;
         private bool _nextInputReceived = false;
+        private float _attackCooldownTimer = 0f;
 
         #endregion
 
         #region Public Properties
 
         public bool IsAttacking { get; private set; }
+        public float CurrentAttackCooldown => _attackCooldownTimer;
+        public float MaxAttackCooldown { get; private set; }
 
         #endregion
 
@@ -58,6 +61,14 @@ namespace Longinus.Player
             }
         }
 
+        private void Update()
+        {
+            if (_attackCooldownTimer > 0f)
+            {
+                _attackCooldownTimer -= Time.deltaTime;
+            }
+        }
+
         #endregion
 
         #region State/Core Logic
@@ -67,6 +78,8 @@ namespace Longinus.Player
         /// </summary>
         public bool AttemptAttack()
         {
+            if (_attackCooldownTimer > 0f) return false;
+            
             if (_currentCombo == null || _currentCombo.Length == 0) return false;
 
             if (IsAttacking)
@@ -99,9 +112,23 @@ namespace Longinus.Player
             _canQueueNextAttack = false;
             _nextInputReceived = false;
             
-            _animator.CrossFade(attack.AnimationHash, 0.1f);
+            _animator.CrossFadeInFixedTime(attack.AnimationHash, 0.1f);
             
             return true;
+        }
+
+        /// <summary>
+        /// Attack cancellation (for example, when a player rolls).
+        /// </summary>
+        public void InterruptCombo()
+        {
+            if (IsAttacking)
+            {
+                IsAttacking = false;
+                CloseHitbox();
+                _attackCooldownTimer = .5f;
+                MaxAttackCooldown = .5f;
+            }
         }
 
         #endregion
@@ -165,6 +192,17 @@ namespace Longinus.Player
         {
             IsAttacking = false;
             CloseHitbox();
+
+            if (_comboIndex >= _currentCombo.Length - 1)
+            {
+                _attackCooldownTimer = 2f; 
+                MaxAttackCooldown = 2f; 
+            }
+            else
+            {
+                _attackCooldownTimer = .5f; 
+                MaxAttackCooldown = .5f; 
+            }
         }
 
         #endregion

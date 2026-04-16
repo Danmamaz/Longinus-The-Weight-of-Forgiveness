@@ -248,7 +248,10 @@ namespace Longinus.Player
         }
 
         public override void FixedUpdateState() { }
-        public override void ExitState() { }
+        public override void ExitState()
+        {
+            _ctx.CombatManager.InterruptCombo();
+        }
 
         public override void CheckSwitchStates()
         {
