@@ -40,6 +40,7 @@ namespace Longinus.Player
         [SerializeField] private float _rollDuration = 0.8f;
         [SerializeField] private float _rollDistanceMult = 15f;
         [SerializeField] private AnimationCurve _rollSpeedCurve = new AnimationCurve(new Keyframe(0, 1), new Keyframe(1, 3.5f));
+        [SerializeField] private float _rollStaminaCost = 15f;
 
         [Header("System References")]
         [SerializeField] private UIManager _uiManager;
@@ -80,6 +81,7 @@ namespace Longinus.Player
         public bool AttackTriggered => LightAttackTriggered || HeavyAttackTriggered;
         public bool LightAttackTriggered { get; private set; }
         public bool HeavyAttackTriggered { get; private set; }
+        public float RollStaminaCost => _rollStaminaCost;
         
         #endregion
 

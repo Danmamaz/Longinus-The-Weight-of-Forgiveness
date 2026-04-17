@@ -151,6 +151,18 @@ namespace Longinus.Player
             _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
         }
 
+        /// <summary>
+        /// Applies constant physical impulse forward.
+        /// </summary>
+        public void ApplyForwardImpulse(float force)
+        {
+            if (force > 0f)
+            {
+                _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+                _rb.AddForce(transform.forward * force, ForceMode.Impulse);
+            }
+        }
+
         #endregion
     }
 }

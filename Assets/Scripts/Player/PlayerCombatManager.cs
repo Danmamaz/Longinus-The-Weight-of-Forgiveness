@@ -27,6 +27,7 @@ namespace Longinus.Player
 
         private Animator _animator;
         private PlayerStatsManager _statsManager;
+        private PlayerLocomotion _locomotion;
 
         private int _comboIndex = 0;
         private bool _canQueueNextAttack = false;
@@ -49,6 +50,7 @@ namespace Longinus.Player
         {
             _animator = GetComponentInChildren<Animator>();
             _statsManager = GetComponent<PlayerStatsManager>();
+            _locomotion = GetComponent<PlayerLocomotion>();
             
             if (_weaponCollider != null)
             {
@@ -113,6 +115,11 @@ namespace Longinus.Player
             _nextInputReceived = false;
             
             _animator.CrossFadeInFixedTime(attack.AnimationHash, 0.1f);
+
+            if (_locomotion != null)
+            {
+                _locomotion.ApplyForwardImpulse(attack.forwardStepForce);
+            }
             
             return true;
         }

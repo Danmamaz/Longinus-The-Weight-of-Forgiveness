@@ -100,6 +100,20 @@ namespace Longinus.Player
 
         public override void UpdateState()
         {
+            if (_ctx.RollTriggered)
+            {
+                _stateMachine.ChangeState(_ctx.RollState);
+                return;
+            }
+
+            if (_ctx.AttackTriggered) 
+            {
+                _stateMachine.ChangeState(_ctx.AttackState);
+                return;
+            }
+
+            _ctx.Locomotion.HandleMovement(_ctx.MoveInput, _ctx.MoveSpeed);
+
             CheckSwitchStates();
             _ctx.Animator.SetBool(_animIsMovingHash, _ctx.IsMoving);
             
@@ -162,8 +176,19 @@ namespace Longinus.Player
 
         public override void EnterState()
         {
+
+            
+
             _timer = 0f;
             _ctx.ResetRollTrigger();
+
+            if (!_ctx.Stats.TryConsumeStamina(_ctx.RollStaminaCost))
+            {
+                _stateMachine.ChangeState(_ctx.MoveState);
+                return; 
+            }
+
+            _ctx.Locomotion.StopMovement();
         
             if (_ctx.MoveInput.sqrMagnitude > 0.01f)
             {
