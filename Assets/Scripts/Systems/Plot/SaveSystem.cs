@@ -13,7 +13,6 @@ namespace Longinus.PlotSystem
     public static class SaveSystem
     {
         #region Constants & Variables
-
         private const bool USE_ENCRYPTION = true;
         private const string ENCRYPTION_KEY = "Longinus_VerticalSlice_Key_2026"; 
 

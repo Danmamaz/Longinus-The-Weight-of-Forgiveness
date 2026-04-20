@@ -95,6 +95,17 @@ namespace Longinus.EnemySystem
             DeadState = new EnemyDeadState(this, _stateMachine);
         }
 
+        private void Start()
+        {
+            if (_playerTransform != null)
+            {
+                MovementManager.SetTarget(_playerTransform);
+            }
+
+            bool hasWaypoints = PatrolWaypoints != null && PatrolWaypoints.Length > 0;
+            _stateMachine.Initialize(IsPatrollingEnemy && hasWaypoints ? PatrolState : IdleState);
+        }
+
         private void OnEnable()
         {
             _isDead = false;
@@ -103,14 +114,6 @@ namespace Longinus.EnemySystem
             StatsManager.OnDeath += HandleDeath;
             StatsManager.OnPoiseBreak += HandlePoiseBreak;
             StatsManager.OnSpareableDeath += HandleSpareableDeath;
-
-            if (_playerTransform != null)
-            {
-                MovementManager.SetTarget(_playerTransform);
-            }
-
-            bool hasWaypoints = PatrolWaypoints != null && PatrolWaypoints.Length > 0;
-            _stateMachine.Initialize(IsPatrollingEnemy && hasWaypoints ? PatrolState : IdleState);
         }
 
         private void OnDisable()
