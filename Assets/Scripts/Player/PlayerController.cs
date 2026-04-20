@@ -55,6 +55,7 @@ namespace Longinus.Player
         #endregion
 
         #region Public Properties
+        public static PlayerController Instance { get; private set; }
         
         public float MoveSpeed => _moveSpeed;
         public float RotationSpeed => _rotationSpeed;
@@ -89,6 +90,7 @@ namespace Longinus.Player
 
         private void Awake()
         {
+            Instance = this;
             CombatManager = GetComponent<PlayerCombatManager>();
             Stats = GetComponent<PlayerStatsManager>();
             Locomotion = GetComponent<PlayerLocomotion>();

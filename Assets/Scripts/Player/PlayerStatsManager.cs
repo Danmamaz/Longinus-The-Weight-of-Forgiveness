@@ -179,6 +179,14 @@ namespace Longinus.Player
             }
         }
 
+        public void RestoreAll()
+        {
+            CurrentHealth = MaxHealth;
+            CurrentStamina = MaxStamina;
+            CurrentMana = MaxMana;
+            CurrentUltimate = 0;
+        }
+
         private void Die()
         {
             if (_isDead) return;
