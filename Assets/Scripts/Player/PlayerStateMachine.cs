@@ -249,7 +249,7 @@ namespace Longinus.Player
             
             bool started = _ctx.CombatManager.AttemptAttack(); 
             
-            _ctx.ResetAttackTriggers();
+            _ctx.ResetAttackTrigger();
 
             if (!started) 
             {
@@ -263,7 +263,7 @@ namespace Longinus.Player
             {
                 _ctx.CombatManager.AttemptAttack();
                 
-                _ctx.ResetAttackTriggers(); 
+                _ctx.ResetAttackTrigger();
             }
 
             if (!_ctx.CombatManager.IsAttacking) 
@@ -308,7 +308,7 @@ namespace Longinus.Player
         {
             _ctx.Locomotion.StopMovement();
             
-            _ctx.ResetAttackTriggers();
+            _ctx.ResetAttackTrigger();
             _ctx.ResetRollTrigger();
             
             _isInteracting = true;

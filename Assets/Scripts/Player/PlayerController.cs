@@ -24,11 +24,8 @@ namespace Longinus.Player
         [SerializeField, Tooltip("Reference to the dodge/roll input action.")] 
         private InputActionReference _rollActionRef;
         
-        [SerializeField, Tooltip("Reference to the light attack input action.")] 
-        private InputActionReference _lightAttackRef;
-        
-        [SerializeField, Tooltip("Reference to the heavy attack input action.")] 
-        private InputActionReference _heavyAttackRef;
+        [SerializeField, Tooltip("Reference to the attack input action.")] 
+        private InputActionReference _attackActionRef;
         
         [SerializeField, Tooltip("Reference to the interaction input action.")] 
         private InputActionReference _interactActionRef;
@@ -81,9 +78,7 @@ namespace Longinus.Player
         public Vector3 MoveInput { get; private set; }
         public bool IsMoving => MoveInput.sqrMagnitude > 0.001f;
         public bool RollTriggered { get; private set; }
-        public bool AttackTriggered => LightAttackTriggered || HeavyAttackTriggered;
-        public bool LightAttackTriggered { get; private set; }
-        public bool HeavyAttackTriggered { get; private set; }
+        public bool AttackTriggered { get; private set; }
         public float RollStaminaCost => _rollStaminaCost;
         
         #endregion
@@ -108,8 +103,7 @@ namespace Longinus.Player
             SetInputActionsState(true);
 
             _rollActionRef.action.performed += OnRollPerformed;
-            _lightAttackRef.action.performed += OnLightAttackPerformed;
-            _heavyAttackRef.action.performed += OnHeavyAttackPerformed;
+            _attackActionRef.action.performed += OnAttackPerformed;
             _interactActionRef.action.performed += OnInteractPerformed;
             _pauseActionRef.action.performed += OnPausePerformed;
         }
@@ -128,8 +122,6 @@ namespace Longinus.Player
         private void Update()
         {
             ReadInput();
-            
-            // Defensively calling through the current state to avoid exceptions if the machine isn't fully initialized
             _stateMachine.CurrentState?.UpdateState();
         }
 
@@ -143,8 +135,7 @@ namespace Longinus.Player
             if (_moveActionRef == null) return;
 
             _rollActionRef.action.performed -= OnRollPerformed;
-            _lightAttackRef.action.performed -= OnLightAttackPerformed;
-            _heavyAttackRef.action.performed -= OnHeavyAttackPerformed;
+            _attackActionRef.action.performed -= OnAttackPerformed;
             _interactActionRef.action.performed -= OnInteractPerformed;
             _pauseActionRef.action.performed -= OnPausePerformed;
 
@@ -155,9 +146,6 @@ namespace Longinus.Player
 
         #region State/Core Logic
 
-        /// <summary>
-        /// Instantiates the state machine and all player states.
-        /// </summary>
         private void InitStateMachine()
         {
             _stateMachine = new PlayerStateMachine();
@@ -167,9 +155,6 @@ namespace Longinus.Player
             InteractState = new PlayerInteractState(this, _stateMachine);
         }
 
-        /// <summary>
-        /// Reads and normalizes the movement input vector.
-        /// </summary>
         private void ReadInput()
         {
             if (_moveActionRef != null)
@@ -179,41 +164,24 @@ namespace Longinus.Player
             }
         }
 
-        /// <summary>
-        /// Consumes the roll trigger to prevent continuous rolling.
-        /// </summary>
         public void ResetRollTrigger() => RollTriggered = false;
 
-        /// <summary>
-        /// Consumes attack triggers to prevent buffered attacks from firing indefinitely.
-        /// </summary>
-        public void ResetAttackTriggers() 
-        { 
-            LightAttackTriggered = false; 
-            HeavyAttackTriggered = false; 
-        }
+        public void ResetAttackTrigger() => AttackTriggered = false;
 
-        /// <summary>
-        /// Enables or disables combat and movement input actions.
-        /// Pause action remains active intentionally.
-        /// </summary>
-        /// <param name="state">True to enable, false to disable.</param>
         public void SetInputActionsState(bool state)
         {
             if(state)
             {
                 _moveActionRef.action.Enable();
                 _rollActionRef.action.Enable();
-                _lightAttackRef.action.Enable();
-                _heavyAttackRef.action.Enable();
+                _attackActionRef.action.Enable();
                 _interactActionRef.action.Enable();
             }
             else
             {
                 _moveActionRef.action.Disable();
                 _rollActionRef.action.Disable();
-                _lightAttackRef.action.Disable();
-                _heavyAttackRef.action.Disable();
+                _attackActionRef.action.Disable();
                 _interactActionRef.action.Disable();
             }
         }
@@ -223,8 +191,7 @@ namespace Longinus.Player
         #region Event Listeners/Callbacks
 
         private void OnRollPerformed(InputAction.CallbackContext context) => RollTriggered = true;
-        private void OnLightAttackPerformed(InputAction.CallbackContext context) => LightAttackTriggered = true;
-        private void OnHeavyAttackPerformed(InputAction.CallbackContext context) => HeavyAttackTriggered = true;
+        private void OnAttackPerformed(InputAction.CallbackContext context) => AttackTriggered = true;
 
         private void OnInteractPerformed(InputAction.CallbackContext context)
         {
