@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Longinus.Player;
 using UnityEngine;
 using Longinus.PlotSystem;
@@ -25,41 +23,12 @@ namespace Longinus.Save
 
         #region State/Core Logic
 
-        /// <summary>
-        /// Serializes and saves the current plot state to the persistent data path.
-        /// </summary>
-        /// <param name="state">The active plot state to save.</param>
         public static void SaveState(PlotState state, PlayerStatsManager stats, Vector3 saveLocation)
         {
-            if (state == null)
-            {
-                Debug.LogError("[SaveSystem] Cannot save a null PlotState!");
-                return;
-            }
-
-            try
-            {
-                if (File.Exists(SavePath))
-                {
-                    File.Copy(SavePath, BackupPath, true);
-                }
-
-                SaveData data = new SaveData(state, stats, saveLocation);
-                string json = JsonUtility.ToJson(data, false);
-
-                if (USE_ENCRYPTION)
-                {
-                    json = ProcessEncryption(json);
-                }
-
-                File.WriteAllText(SavePath, json);
-                Debug.Log($"[SaveSystem] State successfully saved to {SavePath}");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[SaveSystem] Failed to save state: {e.Message}");
-            }
+            // Fallback до поточного індексу сцени, якщо він не переданий явно
+            SaveState(state, stats, saveLocation, SceneController.Instance != null ? SceneController.Instance.currentSceneIndex : 1);
         }
+
         public static void SaveState(PlotState state, PlayerStatsManager stats, Vector3 saveLocation, int sceneIndex)
         {
             if (state == null)
@@ -92,9 +61,6 @@ namespace Longinus.Save
             }
         }
 
-        /// <summary>
-        /// Loads the plot state, player stats, and location from the persistent data path.
-        /// </summary>
         public static bool LoadState(PlotState state, PlayerStatsManager stats, out Vector3 loadedLocation, out int loadedSceneIndex)
         {
             loadedLocation = Vector3.zero;
@@ -123,7 +89,13 @@ namespace Longinus.Save
 
                 SaveData data = JsonUtility.FromJson<SaveData>(json);
 
-                JsonUtility.FromJsonOverwrite(json, state);
+                // Відновлюємо PlotState з вкладеного JSON
+                if (!string.IsNullOrEmpty(data._plotStateJson))
+                {
+                    JsonUtility.FromJsonOverwrite(data._plotStateJson, state);
+                    // КРИТИЧНО: Відбудовуємо кеші для миттєвого пошуку після завантаження
+                    state.RebuildRuntimeCaches();
+                }
 
                 stats.RestoreState(
                     data._maxHealth, data._currentHealth,
@@ -145,9 +117,6 @@ namespace Longinus.Save
             }
         }
 
-        /// <summary>
-        /// Attempts to load the backup save file if the primary file is corrupted.
-        /// </summary>
         private static bool RestoreBackup(PlotState state, PlayerStatsManager stats, out Vector3 loadedLocation, out int loadedSceneIndex)
         {
             loadedLocation = Vector3.zero;
@@ -169,7 +138,12 @@ namespace Longinus.Save
                 }
 
                 SaveData data = JsonUtility.FromJson<SaveData>(json);
-                JsonUtility.FromJsonOverwrite(json, state);
+                
+                if (!string.IsNullOrEmpty(data._plotStateJson))
+                {
+                    JsonUtility.FromJsonOverwrite(data._plotStateJson, state);
+                    state.RebuildRuntimeCaches();
+                }
 
                 stats.RestoreState(
                     data._maxHealth, data._currentHealth,
@@ -191,9 +165,6 @@ namespace Longinus.Save
             }
         }
 
-        /// <summary>
-        /// Applies a simple XOR cipher to the string. Symmetrical for both encryption and decryption.
-        /// </summary>
         private static string ProcessEncryption(string data)
         {
             if (string.IsNullOrEmpty(data)) return data;
@@ -206,9 +177,6 @@ namespace Longinus.Save
             return new string(result);
         }
 
-        /// <summary>
-        /// Reads only index of the scene, where the player was saved.
-        /// </summary>
         public static int GetSavedSceneIndex()
         {
             if (!File.Exists(SavePath))
@@ -239,15 +207,9 @@ namespace Longinus.Save
 
         #region Data Structures
 
-        /// <summary>
-        /// DTO tailored to mirror PlotState's internal serialized fields.
-        /// This allows JsonUtility.FromJsonOverwrite to map values directly into the ScriptableObject
-        /// without exposing private setters in the PlotState class itself.
-        /// </summary>
         [Serializable]
         private class SaveData
         {
-            // General Data
             public int _buildSceneIndex;
             public Vector3 _location;
 
@@ -263,36 +225,8 @@ namespace Longinus.Save
             public float _maxUltimate;
             public float _currentUltimate;
 
-            // Plot Data
-            public int _currentKarma;
-            public WorldStateType _currentWorldState;
-            public List<string> _madeDecisionIDs;
-            public List<string> _chosenOptions;
-            public List<string> _openedPathIDs;
+            public string _plotStateJson;
 
-
-            public SaveData(PlotState plot, PlayerStatsManager stats, Vector3 saveLocation)
-            {
-                _buildSceneIndex = SceneController.Instance.currentSceneIndex;
-                _location = saveLocation;
-                _maxHealth = stats.MaxHealth;
-                _currentHealth = stats.CurrentHealth;
-                
-                _maxStamina = stats.MaxStamina;
-                _currentStamina = stats.CurrentStamina;
-
-                _maxMana = stats.MaxMana;
-                _currentMana = stats.CurrentMana;
-
-                _maxUltimate = stats.MaxUltimate;
-                _currentUltimate = stats.CurrentUltimate;
-
-                _currentKarma = plot.CurrentKarma;
-                _currentWorldState = plot.CurrentWorldState;
-                _madeDecisionIDs = plot.MadeDecisionIDs.ToList();
-                _chosenOptions = plot.ChosenOptions.ToList();
-                _openedPathIDs = plot.OpenedPathIDs.ToList();
-            }
             public SaveData(PlotState plot, PlayerStatsManager stats, Vector3 saveLocation, int sceneIndex)
             {
                 _buildSceneIndex = sceneIndex;
@@ -309,11 +243,7 @@ namespace Longinus.Save
                 _maxUltimate = stats.MaxUltimate;
                 _currentUltimate = stats.CurrentUltimate;
 
-                _currentKarma = plot.CurrentKarma;
-                _currentWorldState = plot.CurrentWorldState;
-                _madeDecisionIDs = plot.MadeDecisionIDs.ToList();
-                _chosenOptions = plot.ChosenOptions.ToList();
-                _openedPathIDs = plot.OpenedPathIDs.ToList();
+                _plotStateJson = JsonUtility.ToJson(plot);
             }
         }
 

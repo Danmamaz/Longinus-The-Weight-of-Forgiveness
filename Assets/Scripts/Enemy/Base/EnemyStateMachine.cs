@@ -564,21 +564,6 @@ namespace Longinus.EnemySystem
             _choiceMade = true;
 
             _ctx.DisableColliders();
-            
-            // Defensively invoking PlotManager to avoid NullReference exceptions
-            if (PlotManager.Instance != null && !string.IsNullOrEmpty(_ctx.DecisionId))
-            {
-                var decisionNode = PlotManager.Instance.GetNodeByID(_ctx.DecisionId);
-                
-                if (decisionNode != null)
-                {
-                    PlotManager.Instance.RegisterDecision(decisionNode, true);
-                }
-                else
-                {
-                    UnityEngine.Debug.LogWarning($"DecisionNode з ID {_ctx.DecisionId} не знайдено!");
-                }
-            }
 
             _ctx.StatsManager.ExecuteFinalDeath(); 
         }
@@ -592,17 +577,6 @@ namespace Longinus.EnemySystem
             _choiceMade = true;
 
             _ctx.DisableColliders();
-
-            if (PlotManager.Instance != null && !string.IsNullOrEmpty(_ctx.DecisionId))
-            {
-                var decisionNode = PlotManager.Instance.GetNodeByID(_ctx.DecisionId);
-                
-                if (decisionNode != null)
-                {
-                    PlotManager.Instance.RegisterDecision(decisionNode, false);
-                }
-            }
-            
             // Hard-stop the state machine to prevent any lingering logic
             _stateMachine.ChangeState(_ctx.DeadState);
         }

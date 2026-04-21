@@ -3,143 +3,136 @@ using UnityEngine;
 
 namespace Longinus.PlotSystem
 {
+    public enum KnightState { Alive, Killed, Spared }
+
+    [System.Serializable]
+    public struct IntVariable
+    {
+        public string Key;
+        public int Value;
+    }
+
     /// <summary>
-    /// Represents the dynamic runtime state of the game's plot, choices, and world conditions.
+    /// Plot state that controlls current plot.
     /// </summary>
     [CreateAssetMenu(fileName = "New Plot State", menuName = "Longinus/Plot System/Plot State")]
     public class PlotState : ScriptableObject
     {
-        #region Constants & Inspector Variables
+        [Header("Boolean Flags")]
+        [SerializeField, Tooltip("List of all performed actions")]
+        private List<string> _activeFlags = new List<string>();
 
-        public const int ABSOLUTE_MIN_KARMA = -100;
-        public const int ABSOLUTE_MAX_KARMA = 100;
+        [Header("Integer Variables")]
+        [SerializeField, Tooltip("Counters")]
+        private List<IntVariable> _intVariables = new List<IntVariable>();
 
-        [Header("Karma (Absolute Scale)")]
-        [SerializeField, Tooltip("Current karma alignment of the player.")]
-        private int _currentKarma = 0;
-        
-        [Header("Ending Thresholds")]
-        [SerializeField, Tooltip("Karma >= this value triggers the Good ending.")]
-        private int _goodEndingThreshold = 60;
-        
-        [SerializeField, Tooltip("Karma <= this value triggers the Bad ending.")]
-        private int _badEndingThreshold = -40;
+        [Header("Specific States")]
+        [SerializeField] private KnightState _knightState = KnightState.Alive;
 
-        [Header("Decision History")]
-        [SerializeField] private List<string> _madeDecisionIDs = new List<string>();
-        [SerializeField] private List<string> _chosenOptions = new List<string>(); // "A" or "B"
+        private HashSet<string> _runtimeFlags;
+        private Dictionary<string, int> _runtimeInts;
 
-        [Header("World State")]
-        [SerializeField] private WorldStateType _currentWorldState = WorldStateType.Normal;
-        [SerializeField] private List<string> _openedPathIDs = new List<string>();
-
-        [Header("Active Buffs")]
-        [SerializeField] private List<string> _activeBuffIDs = new List<string>();
-
-        [Header("Unlocked Bosses")]
-        [SerializeField] private List<string> _unlockedBossIDs = new List<string>();
-
-        // Note: Standard Dictionaries do not serialize in the Unity Inspector by default.
-        // If you need to view this in the inspector, you will need a custom serializable dictionary wrapper.
-        private Dictionary<string, NPCAttitude> _npcAttitudes = new Dictionary<string, NPCAttitude>();
-
-        #endregion
-
-        #region Public Properties
-
-        public int CurrentKarma => _currentKarma;
-        public int GoodEndingThreshold => _goodEndingThreshold;
-        public int BadEndingThreshold => _badEndingThreshold;
-        public WorldStateType CurrentWorldState => _currentWorldState;
-
-        // IReadOnlyList ensures external scripts can iterate but cannot accidentally add/remove/clear data
-        public IReadOnlyList<string> MadeDecisionIDs => _madeDecisionIDs;
-        public IReadOnlyList<string> ChosenOptions => _chosenOptions;
-        public IReadOnlyList<string> OpenedPathIDs => _openedPathIDs;
-        public IReadOnlyList<string> ActiveBuffIDs => _activeBuffIDs;
-        public IReadOnlyList<string> UnlockedBossIDs => _unlockedBossIDs;
-
-        #endregion
-
-        #region State/Core Logic
+        private void OnEnable()
+        {
+            RebuildRuntimeCaches();
+        }
 
         /// <summary>
-        /// Changes karma with absolute limits and logs the variation.
+        /// Used after loading data from SaveSystem
         /// </summary>
-        public void ChangeKarma(int amount)
+        public void RebuildRuntimeCaches()
         {
-            int oldKarma = _currentKarma;
-            _currentKarma = Mathf.Clamp(_currentKarma + amount, ABSOLUTE_MIN_KARMA, ABSOLUTE_MAX_KARMA);
+            _runtimeFlags = new HashSet<string>(_activeFlags);
             
-            if (_currentKarma != oldKarma)
+            _runtimeInts = new Dictionary<string, int>();
+            foreach (var iv in _intVariables)
             {
-                Debug.Log($"[PlotState] Karma: {oldKarma} → {_currentKarma} ({amount:+#;-#;0})");
+                _runtimeInts[iv.Key] = iv.Value;
             }
         }
 
-        public bool IsGoodEnding() => _currentKarma >= _goodEndingThreshold;
-        public bool IsBadEnding() => _currentKarma <= _badEndingThreshold;
-        public bool IsNeutralEnding() => !IsGoodEnding() && !IsBadEnding();
-        public bool IsKarmaAbove(int threshold) => _currentKarma >= threshold;
-        public bool IsKarmaBelow(int threshold) => _currentKarma <= threshold;
+        #region Boolean Flags Logic
 
-        /// <summary>
-        /// Registers a player's choice to the persistent plot state.
-        /// </summary>
-        public void AddDecision(string decisionId, string chosenOption)
+        public void SetFlag(string flagId)
         {
-            if (!_madeDecisionIDs.Contains(decisionId))
+            if (_runtimeFlags == null) RebuildRuntimeCaches();
+            
+            if (_runtimeFlags.Add(flagId))
             {
-                _madeDecisionIDs.Add(decisionId);
-                _chosenOptions.Add(chosenOption);
+                _activeFlags.Add(flagId);
+                Debug.Log($"[PlotState] Flag Set: {flagId}");
             }
         }
 
-        /// <summary>
-        /// Updates or adds the attitude of a specific NPC.
-        /// </summary>
-        public void SetNPCAttitude(string npcId, NPCAttitude attitude)
+        public bool HasFlag(string flagId)
         {
-            _npcAttitudes[npcId] = attitude;
+            if (_runtimeFlags == null) RebuildRuntimeCaches();
+            return _runtimeFlags.Contains(flagId);
         }
 
-        /// <summary>
-        /// Retrieves the current attitude of an NPC.
-        /// </summary>
-        public bool TryGetNPCAttitude(string npcId, out NPCAttitude attitude)
+        public void RemoveFlag(string flagId)
         {
-            return _npcAttitudes.TryGetValue(npcId, out attitude);
+            if (_runtimeFlags == null) RebuildRuntimeCaches();
+
+            if (_runtimeFlags.Remove(flagId))
+            {
+                _activeFlags.Remove(flagId);
+                Debug.Log($"[PlotState] Flag Removed: {flagId}");
+            }
         }
 
-        /// <summary>
-        /// Resets the plot state to default values (useful for New Game).
-        /// </summary>
+        #endregion
+
+        #region Integer Counters Logic
+
+        public void SetInt(string key, int value)
+        {
+            if (_runtimeInts == null) RebuildRuntimeCaches();
+            
+            _runtimeInts[key] = value;
+            
+            int index = _intVariables.FindIndex(v => v.Key == key);
+            if (index >= 0)
+            {
+                _intVariables[index] = new IntVariable { Key = key, Value = value };
+            }
+            else
+            {
+                _intVariables.Add(new IntVariable { Key = key, Value = value });
+            }
+            
+            Debug.Log($"[PlotState] Variable Updated: {key} = {value}");
+        }
+
+        public int GetInt(string key)
+        {
+            if (_runtimeInts == null) RebuildRuntimeCaches();
+            return _runtimeInts.TryGetValue(key, out int val) ? val : 0;
+        }
+
+        public void AddToInt(string key, int amount)
+        {
+            SetInt(key, GetInt(key) + amount);
+        }
+
+        #endregion
+
+        #region Specific Enums Logic
+
+        public KnightState CurrentKnightState
+        {
+            get => _knightState;
+            set => _knightState = value;
+        }
+
+        #endregion
+
         public void ResetState()
         {
-            _currentKarma = 0;
-            _currentWorldState = WorldStateType.Normal;
-            
-            _madeDecisionIDs.Clear();
-            _chosenOptions.Clear();
-            _openedPathIDs.Clear();
-            _activeBuffIDs.Clear();
-            _unlockedBossIDs.Clear();
-            _npcAttitudes.Clear();
+            _activeFlags.Clear();
+            _intVariables.Clear();
+            _knightState = KnightState.Alive;
+            RebuildRuntimeCaches();
         }
-
-        public void SetWorldState(WorldStateType newState)
-        {
-            _currentWorldState = newState;
-        }
-
-        public void AddOpenedPath(string pathId)
-        {
-            if (!_openedPathIDs.Contains(pathId))
-            {
-                _openedPathIDs.Add(pathId);
-            }
-        }
-
-        #endregion
     }
 }

@@ -1,124 +1,59 @@
-using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Longinus.PlotSystem
 {
-    #region Enums
+    public enum ConditionCheckType { HasFlag, DoesNotHaveFlag, IntGreaterOrEqual }
 
-    /// <summary>
-    /// Defines the type of condition required to unlock a decision or ending.
-    /// </summary>
-    public enum ConditionType
+    [System.Serializable]
+    public struct PlotCondition
     {
-        KarmaAbove,
-        KarmaBelow,
-        DecisionMade,
-        DecisionNotMade,
-        SpecificChoiceMade,
-        HasItem,
-        BossDefeated
-    }
-
-    /// <summary>
-    /// Defines mathematical operators for evaluating numerical conditions.
-    /// </summary>
-    public enum ComparisonOperator
-    {
-        GreaterThan,
-        LessThan,
-        EqualTo,
-        GreaterOrEqual,
-        LessOrEqual
-    }
-
-    /// <summary>
-    /// Represents the current visual and narrative state of the game world.
-    /// </summary>
-    public enum WorldStateType
-    {
-        Normal,
-        Gloomy,
-        Hopeful
-    }
-
-    /// <summary>
-    /// Represents how an NPC reacts to the player based on previous decisions.
-    /// </summary>
-    public enum NPCAttitude
-    {
-        Friendly,
-        Neutral,
-        Hostile
-    }
-    
-    /// <summary>
-    /// Categorizes the nature of a plot decision for UI or tracking purposes.
-    /// </summary>
-    public enum DecisionType
-    {
-        HubNPCRequest,
-        BossDefeat,
-        WorldEvent
-    }
-
-    /// <summary>
-    /// Categorizes the alignment of a game ending.
-    /// </summary>
-    public enum Endings
-    {
-        Good,
-        Neutral,
-        Bad
-    }
-
-    #endregion
-
-    #region Data Structures
-
-    /// <summary>
-    /// A serializable structure defining a prerequisite condition for a plot node.
-    /// </summary>
-    [Serializable]
-    public class DecisionCondition
-    {
-        [SerializeField, Tooltip("The specific rule type to evaluate.")]
-        private ConditionType _conditionType;
+        [Tooltip("What is checked")]
+        public ConditionCheckType CheckType;
         
-        [SerializeField, Tooltip("The ID of the item, boss, or decision to check against.")]
-        private string _targetID;
+        [Tooltip("ID of the flag or key")]
+        public string Key; 
         
-        [SerializeField, Tooltip("Operator used if comparing numerical values (like stats).")]
-        private ComparisonOperator _comparison;
+        [Tooltip("Variable only for counters")]
+        public int RequiredAmount; 
         
-        [SerializeField, Tooltip("The numerical threshold required (e.g., Karma amount).")]
-        private int _targetValue;
-        
-        [SerializeField, Tooltip("The specific choice ('A' or 'B') required if checking previous decisions.")]
-        private string _requiredChoice;
+        public bool IsMet(PlotState state)
+        {
+            if (state == null) return false;
 
-        public ConditionType ConditionType => _conditionType;
-        public string TargetID => _targetID;
-        public ComparisonOperator Comparison => _comparison;
-        public int TargetValue => _targetValue;
-        public string RequiredChoice => _requiredChoice;
+            switch (CheckType)
+            {
+                case ConditionCheckType.HasFlag: 
+                    return state.HasFlag(Key);
+                case ConditionCheckType.DoesNotHaveFlag: 
+                    return !state.HasFlag(Key);
+                case ConditionCheckType.IntGreaterOrEqual: 
+                    return state.GetInt(Key) >= RequiredAmount;
+                default: 
+                    return false;
+            }
+        }
     }
 
-    #endregion
-
-    #region Abstract Classes
-
-    /// <summary>
-    /// Base class for all plot-related outcomes and mechanical effects.
-    /// </summary>
-    [Serializable]
-    public abstract class Consequence
+    [System.Serializable]
+    public struct PlotConsequence
     {
-        /// <summary>
-        /// Executes the specific logic of this consequence via the PlotManager.
-        /// </summary>
-        /// <param name="context">The active PlotManager instance.</param>
-        public abstract void Apply(PlotManager context);
-    }
+        [Tooltip("If true, will set this flag")]
+        public bool SetFlag;
+        public string FlagToSet;
+        
+        [Tooltip("If true, will add this variables to counter")]
+        public bool ModifyInt;
+        public string IntKey;
+        public int IntAmount;
 
-    #endregion
+        public void Apply(PlotState state)
+        {
+            if (SetFlag && !string.IsNullOrEmpty(FlagToSet)) 
+                state.SetFlag(FlagToSet);
+                
+            if (ModifyInt && !string.IsNullOrEmpty(IntKey)) 
+                state.AddToInt(IntKey, IntAmount);
+        }
+    }
 }
