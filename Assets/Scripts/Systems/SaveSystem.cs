@@ -60,23 +60,56 @@ namespace Longinus.Save
                 Debug.LogError($"[SaveSystem] Failed to save state: {e.Message}");
             }
         }
-
-        /// <summary>
-        /// Loads the plot state from the persistent data path and overwrites the active state.
-        /// </summary>
-        /// <param name="state">The PlotState ScriptableObject to overwrite with loaded data.</param>
-        public static void LoadState(PlotState state)
+        public static void SaveState(PlotState state, PlayerStatsManager stats, Vector3 saveLocation, int sceneIndex)
         {
             if (state == null)
             {
-                Debug.LogError("[SaveSystem] Cannot load into a null PlotState!");
+                Debug.LogError("[SaveSystem] Cannot save a null PlotState!");
                 return;
+            }
+
+            try
+            {
+                if (File.Exists(SavePath))
+                {
+                    File.Copy(SavePath, BackupPath, true);
+                }
+
+                SaveData data = new SaveData(state, stats, saveLocation, sceneIndex);
+                string json = JsonUtility.ToJson(data, false);
+
+                if (USE_ENCRYPTION)
+                {
+                    json = ProcessEncryption(json);
+                }
+
+                File.WriteAllText(SavePath, json);
+                Debug.Log($"[SaveSystem] State successfully saved to {SavePath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SaveSystem] Failed to save state: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads the plot state, player stats, and location from the persistent data path.
+        /// </summary>
+        public static bool LoadState(PlotState state, PlayerStatsManager stats, out Vector3 loadedLocation, out int loadedSceneIndex)
+        {
+            loadedLocation = Vector3.zero;
+            loadedSceneIndex = -1;
+
+            if (state == null || stats == null)
+            {
+                Debug.LogError("[SaveSystem] Cannot load into a null PlotState or PlayerStatsManager!");
+                return false;
             }
 
             if (!File.Exists(SavePath))
             {
                 Debug.LogWarning("[SaveSystem] No save file found. Starting fresh.");
-                return;
+                return false;
             }
 
             try
@@ -88,29 +121,42 @@ namespace Longinus.Save
                     json = ProcessEncryption(json);
                 }
 
-                // Pragmatic Hack: We overwrite the SO directly. 
-                // Because our DTO fields perfectly match the SO's private [SerializeField] names, 
-                // JsonUtility injects the lists/karma seamlessly while ignoring design thresholds!
+                SaveData data = JsonUtility.FromJson<SaveData>(json);
+
                 JsonUtility.FromJsonOverwrite(json, state);
+
+                stats.RestoreState(
+                    data._maxHealth, data._currentHealth,
+                    data._maxStamina, data._currentStamina,
+                    data._maxMana, data._currentMana,
+                    data._maxUltimate, data._currentUltimate
+                );
+
+                loadedLocation = data._location;
+                loadedSceneIndex = data._buildSceneIndex;
                 
                 Debug.Log("[SaveSystem] State successfully loaded.");
+                return true;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[SaveSystem] Failed to load state. Attempting to restore backup... Error: {e.Message}");
-                RestoreBackup(state);
+                return RestoreBackup(state, stats, out loadedLocation, out loadedSceneIndex);
             }
         }
 
         /// <summary>
         /// Attempts to load the backup save file if the primary file is corrupted.
         /// </summary>
-        private static void RestoreBackup(PlotState state)
+        private static bool RestoreBackup(PlotState state, PlayerStatsManager stats, out Vector3 loadedLocation, out int loadedSceneIndex)
         {
+            loadedLocation = Vector3.zero;
+            loadedSceneIndex = -1;
+
             if (!File.Exists(BackupPath))
             {
                 Debug.LogError("[SaveSystem] No backup file available to restore.");
-                return;
+                return false;
             }
 
             try
@@ -122,12 +168,26 @@ namespace Longinus.Save
                     json = ProcessEncryption(json);
                 }
 
+                SaveData data = JsonUtility.FromJson<SaveData>(json);
                 JsonUtility.FromJsonOverwrite(json, state);
+
+                stats.RestoreState(
+                    data._maxHealth, data._currentHealth,
+                    data._maxStamina, data._currentStamina,
+                    data._maxMana, data._currentMana,
+                    data._maxUltimate, data._currentUltimate
+                );
+
+                loadedLocation = data._location;
+                loadedSceneIndex = data._buildSceneIndex;
+
                 Debug.LogWarning("[SaveSystem] State successfully restored from backup.");
+                return true;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[SaveSystem] Critical Failure! Backup is also corrupted: {e.Message}");
+                return false;
             }
         }
 
@@ -144,6 +204,35 @@ namespace Longinus.Save
                 result[i] = (char)(data[i] ^ ENCRYPTION_KEY[i % ENCRYPTION_KEY.Length]);
             }
             return new string(result);
+        }
+
+        /// <summary>
+        /// Reads only index of the scene, where the player was saved.
+        /// </summary>
+        public static int GetSavedSceneIndex()
+        {
+            if (!File.Exists(SavePath))
+            {
+                Debug.LogWarning("[SaveSystem] No save file found. Returning scene by default (1).");
+                return 1;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(SavePath);
+                if (USE_ENCRYPTION)
+                {
+                    json = ProcessEncryption(json);
+                }
+
+                SaveData data = JsonUtility.FromJson<SaveData>(json);
+                return data._buildSceneIndex;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SaveSystem] Error reading save data: {e.Message}");
+                return 1;
+            }
         }
 
         #endregion
@@ -185,6 +274,28 @@ namespace Longinus.Save
             public SaveData(PlotState plot, PlayerStatsManager stats, Vector3 saveLocation)
             {
                 _buildSceneIndex = SceneController.Instance.currentSceneIndex;
+                _location = saveLocation;
+                _maxHealth = stats.MaxHealth;
+                _currentHealth = stats.CurrentHealth;
+                
+                _maxStamina = stats.MaxStamina;
+                _currentStamina = stats.CurrentStamina;
+
+                _maxMana = stats.MaxMana;
+                _currentMana = stats.CurrentMana;
+
+                _maxUltimate = stats.MaxUltimate;
+                _currentUltimate = stats.CurrentUltimate;
+
+                _currentKarma = plot.CurrentKarma;
+                _currentWorldState = plot.CurrentWorldState;
+                _madeDecisionIDs = plot.MadeDecisionIDs.ToList();
+                _chosenOptions = plot.ChosenOptions.ToList();
+                _openedPathIDs = plot.OpenedPathIDs.ToList();
+            }
+            public SaveData(PlotState plot, PlayerStatsManager stats, Vector3 saveLocation, int sceneIndex)
+            {
+                _buildSceneIndex = sceneIndex;
                 _location = saveLocation;
                 _maxHealth = stats.MaxHealth;
                 _currentHealth = stats.CurrentHealth;

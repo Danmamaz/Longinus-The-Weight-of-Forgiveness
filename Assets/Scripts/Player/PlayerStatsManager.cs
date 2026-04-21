@@ -187,6 +187,32 @@ namespace Longinus.Player
             CurrentUltimate = 0;
         }
 
+        /// <summary>
+        /// Restores the player's stats from a loaded save file. 
+        /// Bypasses normal gameplay mechanics (like damage calculation or events).
+        /// </summary>
+        public void RestoreState(
+            float maxHealth, float currentHealth, 
+            float maxStamina, float currentStamina, 
+            float maxMana, float currentMana, 
+            float maxUltimate, float currentUltimate)
+        {
+            _maxHealth = maxHealth;
+            _maxStamina = maxStamina;
+            _maxMana = maxMana;
+            _maxUltimate = maxUltimate;
+
+            CurrentHealth = currentHealth;
+            CurrentStamina = currentStamina;
+            CurrentMana = currentMana;
+            CurrentUltimate = currentUltimate;
+            
+            OnDamage?.Invoke(CurrentHealth);
+            OnStaminaChange?.Invoke();
+            OnManaChange?.Invoke();
+            OnUltimateChange?.Invoke();
+        }
+
         private void Die()
         {
             if (_isDead) return;

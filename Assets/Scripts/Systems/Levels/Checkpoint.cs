@@ -3,6 +3,7 @@ using Longinus.Player;
 using Longinus.PlotSystem;
 using Longinus.Save;
 using Longinus.Interfaces;
+using UnityEngine.SceneManagement;
 
 namespace Longinus.InGameItems
 {
@@ -19,7 +20,7 @@ namespace Longinus.InGameItems
             PlayerController player = PlayerController.Instance;
             player.Stats.RestoreAll();
 
-            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position);            
+            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);            
         }
 
         public string GetInteractionText()

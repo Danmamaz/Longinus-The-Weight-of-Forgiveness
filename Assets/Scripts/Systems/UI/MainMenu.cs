@@ -5,19 +5,31 @@ using UnityEngine.SceneManagement;
 
 public class MainMenu : MonoBehaviour
 {
-    [SerializeField] GameObject _logo;
-    [SerializeField] GameObject _white;
-    [SerializeField] GameObject _black;
-    [SerializeField] float _timeToAppear;
-    [SerializeField] GameObject _textToAppear;
+    [Header("UI Elements (Assign RectTransforms!)")]
+    [SerializeField] private RectTransform _logoRect;
+    [SerializeField] private List<RectTransform> _buttonRects = new List<RectTransform>();
+    
+    [Header("Screens & Text")]
+    [SerializeField] private GameObject _textToAppear;
+    [SerializeField] private GameObject _white;
+    [SerializeField] private GameObject _loadScreen;
+    
+    [Header("Settings")]
+    [SerializeField] private float _timeToAppear = 2f;
+    [SerializeField] private float _moveDistance = 70f;
+    [SerializeField] private float _moveDuration = 1f;
 
-    [SerializeField] List<GameObject> buttons = new List<GameObject>();
-    [SerializeField] Animator animator;
+    private bool _isLoadActive = false;
 
     public void Start()
     {
         _textToAppear.SetActive(false);
-        _white.SetActive(false);
+        
+        foreach (var btn in _buttonRects)
+        {
+            btn.gameObject.SetActive(false);
+        }
+        
         StartCoroutine(AppearText());
     }
 
@@ -29,30 +41,59 @@ public class MainMenu : MonoBehaviour
 
     public void ShowButtons()
     {
-        foreach (var button in buttons)
-        {
-            button.SetActive(true);
-        }
         _white.SetActive(true);
         _textToAppear.SetActive(false);
+        
+        foreach (var buttonRect in _buttonRects)
+        {
+            buttonRect.gameObject.SetActive(true);
+            StartCoroutine(MoveUIElementUp(buttonRect, _moveDistance, _moveDuration, null));
+        }
+
+        if (_logoRect != null)
+        {
+            Animator logoAnim = _logoRect.GetComponent<Animator>();
+
+            StartCoroutine(MoveUIElementUp(_logoRect, _moveDistance, _moveDuration, logoAnim));
+        }
     }
 
-    public void LoadScene(int sceneIndex)
+    private IEnumerator MoveUIElementUp(RectTransform rect, float distance, float duration, Animator animToDisable)
     {
-        StartCoroutine(StartSceneLoading(sceneIndex));
+        if (animToDisable != null)
+        {
+            animToDisable.enabled = false;
+        }
+
+        Vector2 startPos = rect.anchoredPosition;
+        Vector2 endPos = startPos + new Vector2(0, distance);
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            float t = elapsedTime / duration;
+            t = t * t * (3f - 2f * t); 
+
+            rect.anchoredPosition = Vector2.Lerp(startPos, endPos, t);
+            elapsedTime += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        rect.anchoredPosition = endPos; 
+
+        if (animToDisable != null)
+        {
+            animToDisable.enabled = true;
+            animToDisable.SetTrigger("Up");
+        }
     }
 
-    private IEnumerator StartSceneLoading(int sceneIndex)
+    public void ToggleLoadMenu()
     {
-        //Start animation
-        _white.SetActive(false);
-        _white.SetActive(true);
-        _black.SetActive(true);
-        yield return new WaitForSeconds(5);
-        SceneManager.LoadScene(sceneIndex);
-
+        _isLoadActive = !_isLoadActive;
+        _loadScreen.SetActive(_isLoadActive);
     }
 
-
+    
 
 }

@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Longinus.UI;
+using Longinus.PlotSystem;
+using Longinus.Save;
 
 namespace Longinus.Player
 {
@@ -115,6 +117,12 @@ namespace Longinus.Player
         private void Start()
         {
             _stateMachine.Initialize(MoveState);
+
+            if (SaveSystem.LoadState(PlotManager.Instance.PlotState, Stats, out Vector3 loadedPosition, out int loadedLevelIndex))
+            {
+                Locomotion.GetComponent<Rigidbody>().position = loadedPosition;
+                transform.position = loadedPosition;
+            }
         }
 
         private void Update()
