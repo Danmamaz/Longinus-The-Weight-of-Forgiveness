@@ -72,7 +72,7 @@ namespace Longinus.Player
         public PlayerMoveState MoveState { get; private set; }
         public PlayerRollState RollState { get; private set; }
         public PlayerAttackState AttackState { get; private set; }
-        public PlayerInteractState InteractState { get; private set; }
+        public PlayerDeadState DeadState { get; private set; }
 
         // Input States
         public Vector3 MoveInput { get; private set; }
@@ -104,8 +104,9 @@ namespace Longinus.Player
 
             _rollActionRef.action.performed += OnRollPerformed;
             _attackActionRef.action.performed += OnAttackPerformed;
-            _interactActionRef.action.performed += OnInteractPerformed;
             _pauseActionRef.action.performed += OnPausePerformed;
+
+            Stats.OnDeath += HandleDeath;
         }
 
         private void Start()
@@ -136,10 +137,11 @@ namespace Longinus.Player
 
             _rollActionRef.action.performed -= OnRollPerformed;
             _attackActionRef.action.performed -= OnAttackPerformed;
-            _interactActionRef.action.performed -= OnInteractPerformed;
             _pauseActionRef.action.performed -= OnPausePerformed;
 
             SetInputActionsState(false);
+
+            Stats.OnDeath -= HandleDeath;
         }
 
         #endregion
@@ -152,7 +154,7 @@ namespace Longinus.Player
             MoveState = new PlayerMoveState(this, _stateMachine);
             RollState = new PlayerRollState(this, _stateMachine);
             AttackState = new PlayerAttackState(this, _stateMachine);
-            InteractState = new PlayerInteractState(this, _stateMachine);
+            DeadState = new PlayerDeadState(this, _stateMachine);
         }
 
         private void ReadInput()
@@ -186,6 +188,15 @@ namespace Longinus.Player
             }
         }
 
+        private void HandleDeath()
+        {
+            if (_stateMachine.CurrentState != DeadState)
+            {
+                _stateMachine.ChangeState(DeadState);
+                SetInputActionsState(false);
+            }
+        }
+
         #endregion
 
         #region Event Listeners/Callbacks
@@ -197,9 +208,11 @@ namespace Longinus.Player
         {
             if (_stateMachine.CurrentState == MoveState)
             {
-                _stateMachine.ChangeState(InteractState);
+                InteractionSystem.InteractWithClosestObject();
+                
             }
         }
+
 
         private void OnPausePerformed(InputAction.CallbackContext context)
         {

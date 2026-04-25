@@ -292,58 +292,22 @@ namespace Longinus.Player
         
         #endregion
     }
-    public class PlayerInteractState : PlayerBaseState
+
+    public class PlayerDeadState : PlayerBaseState
     {
-        #region Private Variables
-        
-        private bool _isInteracting;
-        
-        #endregion
+        private readonly int _animDieHash = Animator.StringToHash("Die");
 
-        public PlayerInteractState(PlayerController ctx, PlayerStateMachine stateMachine) : base(ctx, stateMachine) { }
-
-        #region State/Core Logic
+        public PlayerDeadState(PlayerController ctx, PlayerStateMachine stateMachine) : base(ctx, stateMachine) { }
 
         public override void EnterState()
         {
             _ctx.Locomotion.StopMovement();
-            
-            _ctx.ResetAttackTrigger();
-            _ctx.ResetRollTrigger();
-            
-            _isInteracting = true;
-
-            // Updated to use the correct API from our previously refactored InteractionSystem
-            _ctx.InteractionSystem.InteractWithClosestObject();
+            _ctx.Animator.SetTrigger(_animDieHash);
         }
 
-        public override void UpdateState()
-        {
-            CheckSwitchStates();
-        }
-
+        public override void UpdateState() { }
         public override void FixedUpdateState() { }
-
-        public override void ExitState()
-        {
-            _isInteracting = false; 
-        }
-
-        public override void CheckSwitchStates()
-        {
-            if (_ctx.RollTriggered)
-            {
-                 _stateMachine.ChangeState(_ctx.RollState);
-                 return;
-            }
-
-            // Allows movement input to cancel the interaction state fallback
-            if (_ctx.MoveInput.sqrMagnitude > 0.1f)
-            {
-                _stateMachine.ChangeState(_ctx.MoveState);
-            }
-        }
-        
-        #endregion
+        public override void ExitState() { }
+        public override void CheckSwitchStates() { }
     }
 }

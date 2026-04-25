@@ -1,10 +1,7 @@
-using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using TMPro;
 using Longinus.Player;
-using Longinus.Interfaces;
-using Longinus.PlotSystem;
+using System.Collections;
 
 namespace Longinus.UI
 {
@@ -25,17 +22,10 @@ namespace Longinus.UI
         [Header("Pause Menu")]
         [SerializeField, Tooltip("The root game object of the pause menu UI.")]
         private GameObject _pauseMenu;
-        
-        [Header("Player Stats UI")]
-        [SerializeField, Tooltip("Text component displaying current health.")]
-        private TMP_Text _healthText; 
-        
-        [SerializeField, Tooltip("Text component displaying current stamina.")]
-        private TMP_Text _staminaText;
-        
-        [Header("Interactables UI")]
-        [SerializeField, Tooltip("Text component displaying interaction prompts.")]
-        private TMP_Text _interactableText;
+
+        [Header("Death UI")]
+        [SerializeField, Tooltip("Root object of a death screen.")]
+        private GameObject _deathScreen;
 
         #endregion
 
@@ -59,18 +49,8 @@ namespace Longinus.UI
             if (_playerStats != null)
             {
                 // Subscribing to the refactored standard C# Actions
-                _playerStats.OnDamage += UpdateHealthUI;
-                _playerStats.OnStaminaChange += UpdateStaminaUI;
+                _playerStats.OnDeath += ShowDeathScreen;
                 
-                // Initialize UI with current values
-                UpdateHealthUI(_playerStats.CurrentHealth);
-                UpdateStaminaUI();
-            }
-
-            if (_interactionSystem != null)
-            {
-                // Subscribing to the refactored single UnityEvent
-                _interactionSystem.OnInteractablesChanged.AddListener(UpdateInteractableUI);
             }
         }
 
@@ -78,15 +58,9 @@ namespace Longinus.UI
         {
             if (_playerStats != null)
             {
-                _playerStats.OnDamage -= UpdateHealthUI;
-                _playerStats.OnStaminaChange -= UpdateStaminaUI;
+                _playerStats.OnDeath -= ShowDeathScreen;
             }
 
-            if (_interactionSystem != null)
-            {
-                _interactionSystem.OnInteractablesChanged.RemoveListener(UpdateInteractableUI);
-            }
-            
             // Safety net: ensure time is unpaused if the UI object is destroyed during a scene transition
             Time.timeScale = 1f;
         }
@@ -110,60 +84,23 @@ namespace Longinus.UI
             return _isPaused;
         }
 
+        private void ShowDeathScreen()
+        {
+            if (_deathScreen != null)
+            {
+                StartCoroutine(Wait());
+                _deathScreen.SetActive(true);
+            }
+
+
+            IEnumerator Wait()
+            {
+                yield return new WaitForSeconds(2f);
+            }
+        }
+
         #endregion
         
-        #region Event Listeners/Callbacks
-
-        /// <summary>
-        /// Updates the health display. Triggered when the player takes damage.
-        /// </summary>
-        private void UpdateHealthUI(float currentHealth)
-        {
-            if (_healthText != null)
-            {
-                _healthText.text = $"Health: {Mathf.CeilToInt(currentHealth)}";
-            }
-        }
-
-        /// <summary>
-        /// Updates the stamina display. Triggered when stamina is consumed or regenerated.
-        /// </summary>
-        private void UpdateStaminaUI()
-        {
-            if (_staminaText != null && _playerStats != null)
-            {
-                _staminaText.text = $"Stamina: {Mathf.CeilToInt(_playerStats.CurrentStamina)}";
-            }
-        }
-
-        /// <summary>
-        /// Updates the interaction prompt text based on objects currently in range.
-        /// </summary>
-        private void UpdateInteractableUI(List<IInteractable> interactables)
-        {
-            if (_interactableText == null) return;
-
-            if (interactables == null || interactables.Count == 0)
-            {
-                _interactableText.text = string.Empty;
-                return;
-            }
-
-            _interactableStringBuilder.Clear();
-            
-            foreach (var interactable in interactables)
-            {
-                if (interactable != null)
-                {
-                    _interactableStringBuilder.AppendLine(interactable.GetInteractionText());
-                }
-            }
-            
-            _interactableText.text = _interactableStringBuilder.ToString().TrimEnd();
-        }
-
-        #endregion
-
         #region Buttons
 
         /// <summary>
