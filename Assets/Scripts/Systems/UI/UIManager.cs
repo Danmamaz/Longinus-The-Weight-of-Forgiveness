@@ -78,10 +78,20 @@ namespace Longinus.UI
             if (_pauseMenu == null) return false;
             
             _isPaused = !_isPaused;
-            _pauseMenu.SetActive(_isPaused);
+            if (_isPaused)_pauseMenu.SetActive(true);
+            else
+            {
+                Invoke("ExitPauseMenu", 3f);
+                _pauseMenu.GetComponent<Animator>().SetTrigger("Exit");
+            }
             Time.timeScale = _isPaused ? 0f : 1f;
 
             return _isPaused;
+        }
+
+        void ExitPauseMenu()
+        {
+            _pauseMenu.SetActive(false);
         }
 
         private void ShowDeathScreen()
