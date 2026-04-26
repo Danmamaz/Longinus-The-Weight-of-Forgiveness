@@ -48,7 +48,7 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
         Lighting Off
         ZWrite   Off
         ZTest    [unity_GUIZTestMode]
-        Blend    SrcAlpha OneMinusSrcAlpha
+        Blend    SrcAlpha One // FIX: Changed to Additive Blending for proper light emission
         ColorMask [_ColorMask]
 
         Pass
@@ -92,40 +92,36 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
                 return frac(p.x * p.y);
             }
 
-            // Модифікована функція для векторного руху
             float ParticleLayerVectorized(float2 uv, float density, float speed, float time, float fadeRange, float angleSpread, out float coreMask)
             {
                 float2 st = uv * density;
-                
                 float2 rawId = floor(uv * density);
                 float random = hash21(rawId);
                 float flicker = sin(time * (3.0 + random * 5.0) + random * 100.0) * 0.4 + 0.6;
                 float spawnMask = smoothstep(0.3, 0.8, random);
 
                 float angle = (random - 0.5) * 2.0 * angleSpread;
-                
                 float2 moveDir = float2(cos(angle), sin(angle));
                 float speedVar = 0.5 + random * 1.5;
-                
                 float2 startOffset = float2(hash21(rawId + 1.0), hash21(rawId + 2.0)) - 0.5;
                 float t = time * speed * speedVar;
-                
                 float2 currentPos = frac(startOffset + moveDir * t) - 0.5;
+
+                // FIX: Force the particle to fade out completely before it touches the cell boundary
+                float edgeFade = smoothstep(0.5, 0.3, abs(currentPos.x)) * smoothstep(0.5, 0.3, abs(currentPos.y));
 
                 float2 cellUV = frac(st) - 0.5;
                 float d = length(cellUV - currentPos);
 
                 float core = smoothstep(0.06, 0.0, d);
                 float glow = exp(-d * _GlowSpread) * 0.5;
-
                 float personalFadeEnd = fadeRange * (0.7 + 0.6 * hash21(rawId + 3.0));
                 float personalFadeStart = personalFadeEnd * 0.5;
-                
                 float tailFade = 1.0 - smoothstep(personalFadeStart, personalFadeEnd, uv.x);
-                // Плавна поява зліва
                 float headFade = smoothstep(0.0, 0.02, uv.x);
-
-                float finalVisibility = spawnMask * tailFade * headFade * flicker;
+                
+                // FIX: Apply the edgeFade to the final visibility
+                float finalVisibility = spawnMask * tailFade * headFade * flicker * edgeFade;
 
                 coreMask = core * finalVisibility;
                 return (core * 2.0 + glow) * finalVisibility;
@@ -144,14 +140,12 @@ Shader "Custom/OptimizedUIParticleFlow_Vectorized"
             fixed4 frag(v2f i) : SV_Target
             {
                 if (!UnityGet2DClipping(i.worldPos.xy, _ClipRect)) discard;
-
                 float2 uv = i.uv;
                 float time = _UnscaledTime;
 
                 float c1, c2;
                 float p1 = ParticleLayerVectorized(uv, _GridDensity, _Speed, time, _FadeRange, _AngleSpread, c1);
                 float p2 = ParticleLayerVectorized(uv + float2(0.33, 0.77), _GridDensity * 1.4, _Speed * 0.7, time + 10.0, _FadeRange, _AngleSpread, c2);
-                
                 float totalParticles = p1 + p2;
                 float totalCores = max(c1, c2);
 
