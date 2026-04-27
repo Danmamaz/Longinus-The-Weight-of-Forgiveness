@@ -20,13 +20,20 @@ public class SceneController : MonoBehaviour
     {
         _white.SetActive(false);
         currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        if (PlayerController.Instance != null)
         PlayerController.Instance.Stats.OnDeath += LoadSavedGame;
     }
 
     public void LoadSavedGame()
     {
-        int sceneToLoad = SaveSystem.GetSavedSceneIndex();
+        if (!SaveSystem.HasSaveFile())
+        {
+            Debug.LogWarning("[SceneController] No save file found. Redirecting to New Game.");
+            StartNewGame();
+            return;
+        }
         
+        int sceneToLoad = SaveSystem.GetSavedSceneIndex();
         StartCoroutine(StartSceneLoading(sceneToLoad));
     }
 
@@ -45,5 +52,11 @@ public class SceneController : MonoBehaviour
         yield return new WaitForSeconds(7);
         SceneManager.LoadScene(sceneIndex);
     }
-    
+
+    public void StartNewGame()
+    {
+        SaveSystem.DeleteSaveData(); 
+
+        StartCoroutine(StartSceneLoading(1));
+    }    
 }

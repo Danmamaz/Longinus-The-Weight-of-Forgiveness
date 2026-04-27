@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.SceneManagement;
+using Longinus.Save;
 
 public class MainMenu : MonoBehaviour
 {
@@ -94,6 +94,21 @@ public class MainMenu : MonoBehaviour
         _loadScreen.SetActive(_isLoadActive);
     }
 
-    
+    public void OnNewGameClicked()
+    {
+        SceneController.Instance.StartNewGame();
+    }
+
+    public void OnContinueClicked()
+    {
+        if (SaveSystem.HasSaveFile())
+        {
+            SceneController.Instance.LoadSavedGame();
+        }
+        else
+        {
+            Debug.Log("Немає збережень!");
+        }
+    }
 
 }

@@ -229,25 +229,6 @@ namespace Longinus.EnemySystem
             return (transform.position - _playerTransform.position).sqrMagnitude <= _sqrAttackRange;
         }
 
-        /// <summary>
-        /// Safely disables predefined body colliders to prevent interference post-mortem.
-        /// </summary>
-        public void DisableColliders()
-        {
-            if (_bodyColliders == null || _bodyColliders.Length == 0)
-            {
-                Debug.LogWarning($"[EnemyController] No body colliders assigned to {_decisionId}. Falling back to main collider.");
-                Collider col = GetComponent<Collider>();
-                if (col != null) col.enabled = false;
-                return;
-            }
-
-            foreach (var col in _bodyColliders)
-            {
-                if (col != null) col.enabled = false;
-            }
-        }
-
         public void Respawn()
         {
             _isDead = false;
@@ -278,7 +259,6 @@ namespace Longinus.EnemySystem
             _isDead = true;
             
             MovementManager.Stop();
-            DisableColliders();
 
             _stateMachine.ChangeState(DeadState);
             Animator.Play(Animator.StringToHash("Death")); 

@@ -563,8 +563,6 @@ namespace Longinus.EnemySystem
             if (_choiceMade) return;
             _choiceMade = true;
 
-            _ctx.DisableColliders();
-
             _ctx.StatsManager.ExecuteFinalDeath(); 
         }
 
@@ -576,7 +574,6 @@ namespace Longinus.EnemySystem
             if (_choiceMade) return;
             _choiceMade = true;
 
-            _ctx.DisableColliders();
             // Hard-stop the state machine to prevent any lingering logic
             _stateMachine.ChangeState(_ctx.DeadState);
         }

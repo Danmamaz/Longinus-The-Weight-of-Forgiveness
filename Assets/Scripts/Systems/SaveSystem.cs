@@ -203,6 +203,24 @@ namespace Longinus.Save
             }
         }
 
+        public static void DeleteSaveData()
+        {
+            if (File.Exists(SavePath))
+            {
+                File.Delete(SavePath);
+            }
+            if (File.Exists(BackupPath))
+            {
+                File.Delete(BackupPath);
+            }
+            Debug.Log("[SaveSystem] Old save data wiped for a New Game.");
+        }
+
+        public static bool HasSaveFile()
+        {
+            return File.Exists(SavePath);
+        }
+
         #endregion
 
         #region Data Structures
