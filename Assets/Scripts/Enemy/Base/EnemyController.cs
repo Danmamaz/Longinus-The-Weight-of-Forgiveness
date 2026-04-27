@@ -46,6 +46,9 @@ namespace Longinus.EnemySystem
         private bool _isDead;
         private float _sqrDetectionRange;
         private float _sqrAttackRange;
+        private Vector3 _startPosition;
+        private Quaternion _startRotation;
+        public static System.Collections.Generic.List<EnemyController> AllEnemies = new();
         
         #endregion
 
@@ -83,6 +86,9 @@ namespace Longinus.EnemySystem
             _sqrDetectionRange = _detectionRange * _detectionRange;
             _sqrAttackRange = _attackRange * _attackRange;
 
+            _startPosition = transform.position;
+            _startRotation = transform.rotation;
+
             _stateMachine = new EnemyStateMachine();
             IdleState = new EnemyIdleState(this, _stateMachine);
             ChaseState = new EnemyChaseState(this, _stateMachine);
@@ -110,6 +116,8 @@ namespace Longinus.EnemySystem
         {
             _isDead = false;
             ClearLastKnownPosition();
+
+            AllEnemies.Add(this);
             
             StatsManager.OnDeath += HandleDeath;
             StatsManager.OnPoiseBreak += HandlePoiseBreak;
@@ -118,6 +126,8 @@ namespace Longinus.EnemySystem
 
         private void OnDisable()
         {
+            AllEnemies.Remove(this);
+
             if (StatsManager != null)
             {
                 StatsManager.OnDeath -= HandleDeath;
@@ -236,6 +246,23 @@ namespace Longinus.EnemySystem
             {
                 if (col != null) col.enabled = false;
             }
+        }
+
+        public void Respawn()
+        {
+            _isDead = false;
+            transform.position = _startPosition;
+            transform.rotation = _startRotation;
+            
+            StatsManager.RestoreAll();
+            _stateMachine.Initialize(IsPatrollingEnemy ? PatrolState : IdleState);
+            
+            foreach (var col in _bodyColliders) 
+            {
+                if (col != null) col.enabled = true;
+            }
+            
+            Animator.Play("Idle");
         }
 
         #endregion

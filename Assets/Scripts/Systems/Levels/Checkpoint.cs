@@ -18,15 +18,22 @@ namespace Longinus.InGameItems
         public void Interact()
         {
             PlayerController player = PlayerController.Instance;
-            player.Stats.RestoreAll();
+    
+            foreach (var enemy in EnemySystem.EnemyController.AllEnemies)
+            {
+                enemy.Respawn();
+            }
 
-            player.Animator.SetTrigger("Rest");
-            _spawnPoint.GetComponent<Animator>().SetTrigger("Activated");
+            player.Stats.RestoreAll();
 
             player.transform.position = _spawnPoint.position;
             player.transform.rotation = _spawnPoint.rotation;
+            
+            player.StateMachine.ChangeState(player.RestingState);
 
-            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);            
+            _spawnPoint.GetComponent<Animator>().SetTrigger("Activated");
+
+            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);          
         }
 
         public string GetInteractionText()

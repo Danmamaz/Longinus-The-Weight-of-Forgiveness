@@ -310,4 +310,28 @@ namespace Longinus.Player
         public override void ExitState() { }
         public override void CheckSwitchStates() { }
     }
+
+
+    public class PlayerRestingState : PlayerBaseState
+    {
+        public PlayerRestingState(PlayerController player, PlayerStateMachine stateMachine) : base(player, stateMachine) { }
+
+        public override void EnterState()
+        {
+            _ctx.Animator.SetTrigger("Rest");
+            _ctx.SetInputActionsState(false);
+
+            _ctx.EnableInteractionOnly();
+        }
+
+        public override void UpdateState() { }
+        public override void FixedUpdateState() { }
+        public override void CheckSwitchStates() { }
+
+        public override void ExitState()
+        {
+            _ctx.Animator.CrossFadeInFixedTime("Idle", .2f);
+            _ctx.SetInputActionsState(true);
+        }
+    }
 }

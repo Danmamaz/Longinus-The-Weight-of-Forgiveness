@@ -69,10 +69,12 @@ namespace Longinus.Player
         public InteractionSystem InteractionSystem => _interactionSystem;
 
         // State Machine States
+        public PlayerStateMachine StateMachine { get; private set; }
         public PlayerMoveState MoveState { get; private set; }
         public PlayerRollState RollState { get; private set; }
         public PlayerAttackState AttackState { get; private set; }
         public PlayerDeadState DeadState { get; private set; }
+        public PlayerRestingState RestingState { get; private set; }
 
         // Input States
         public Vector3 MoveInput { get; private set; }
@@ -153,10 +155,12 @@ namespace Longinus.Player
         private void InitStateMachine()
         {
             _stateMachine = new PlayerStateMachine();
+            StateMachine = _stateMachine;
             MoveState = new PlayerMoveState(this, _stateMachine);
             RollState = new PlayerRollState(this, _stateMachine);
             AttackState = new PlayerAttackState(this, _stateMachine);
             DeadState = new PlayerDeadState(this, _stateMachine);
+            RestingState = new PlayerRestingState(this, _stateMachine);
         }
 
         private void ReadInput()
@@ -199,6 +203,11 @@ namespace Longinus.Player
             }
         }
 
+        public void EnableInteractionOnly()
+        {
+            _interactActionRef.action.Enable();
+        }
+
         #endregion
 
         #region Event Listeners/Callbacks
@@ -211,7 +220,10 @@ namespace Longinus.Player
             if (_stateMachine.CurrentState == MoveState)
             {
                 InteractionSystem.InteractWithClosestObject();
-                
+            }
+            else if (_stateMachine.CurrentState == RestingState)
+            {
+                _stateMachine.ChangeState(MoveState);
             }
         }
 
@@ -228,6 +240,7 @@ namespace Longinus.Player
             SetInputActionsState(!isPaused);
         }
 
+        
         #endregion
     }
 }

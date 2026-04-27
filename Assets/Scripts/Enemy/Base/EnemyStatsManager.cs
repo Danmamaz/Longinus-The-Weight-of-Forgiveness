@@ -148,6 +148,17 @@ namespace Longinus.EnemySystem
             OnDeath?.Invoke();
         }
 
+        public void RestoreAll()
+        {
+            CurrentHealth = _maxHealth;
+            CurrentPoise = _maxPoise;
+            _isDead = false;
+            IsInChoicePhase = false;
+            _timeSinceLastHit = 0f;
+            
+            OnDamageTaken?.Invoke(0, CurrentHealth);
+        }
+
         #endregion
     }
 }
