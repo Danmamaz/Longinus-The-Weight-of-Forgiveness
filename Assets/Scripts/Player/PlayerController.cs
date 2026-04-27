@@ -104,6 +104,7 @@ namespace Longinus.Player
 
             _rollActionRef.action.performed += OnRollPerformed;
             _attackActionRef.action.performed += OnAttackPerformed;
+            _interactActionRef.action.performed += OnInteractPerformed;
             _pauseActionRef.action.performed += OnPausePerformed;
 
             Stats.OnDeath += HandleDeath;
@@ -137,6 +138,7 @@ namespace Longinus.Player
 
             _rollActionRef.action.performed -= OnRollPerformed;
             _attackActionRef.action.performed -= OnAttackPerformed;
+            _interactActionRef.action.performed -= OnInteractPerformed;
             _pauseActionRef.action.performed -= OnPausePerformed;
 
             SetInputActionsState(false);

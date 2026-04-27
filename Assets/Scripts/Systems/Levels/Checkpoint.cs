@@ -20,6 +20,12 @@ namespace Longinus.InGameItems
             PlayerController player = PlayerController.Instance;
             player.Stats.RestoreAll();
 
+            player.Animator.SetTrigger("Rest");
+            _spawnPoint.GetComponent<Animator>().SetTrigger("Activated");
+
+            player.transform.position = _spawnPoint.position;
+            player.transform.rotation = _spawnPoint.rotation;
+
             SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);            
         }
 

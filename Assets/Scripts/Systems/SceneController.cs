@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Longinus.Save;
 using System.Collections;
+using Longinus.Player;
 
 public class SceneController : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class SceneController : MonoBehaviour
     {
         _white.SetActive(false);
         currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        PlayerController.Instance.Stats.OnDeath += LoadSavedGame;
     }
 
     public void LoadSavedGame()
@@ -40,7 +42,7 @@ public class SceneController : MonoBehaviour
         _white.SetActive(true); 
         _black.SetActive(true);
         
-        yield return new WaitForSeconds(5);
+        yield return new WaitForSeconds(7);
         SceneManager.LoadScene(sceneIndex);
     }
     
