@@ -23,6 +23,10 @@ namespace Longinus.EnemySystem
         [Header("AI Sensors & Settings")]
         [SerializeField, Tooltip("Maximum distance the enemy can detect the player.")] 
         private float _detectionRange = 10f;
+        [SerializeField, Tooltip("Multiplier for attack range to exit combat states. Prevents state flickering.")] 
+        private float _exitAttackRangeMultiplier = 1.2f;
+
+        private float _sqrExitAttackRange;
         
         [SerializeField, Tooltip("Vision cone angle in degrees.")] 
         private float _fieldOfViewAngle = 120f;
@@ -86,6 +90,9 @@ namespace Longinus.EnemySystem
             _sqrDetectionRange = _detectionRange * _detectionRange;
             _sqrAttackRange = _attackRange * _attackRange;
 
+            float exitRange = _attackRange * _exitAttackRangeMultiplier;
+            _sqrExitAttackRange = exitRange * exitRange;
+
             _startPosition = transform.position;
             _startRotation = transform.rotation;
 
@@ -139,6 +146,7 @@ namespace Longinus.EnemySystem
         private void Update()
         {
             if (_isDead) return;
+            Debug.Log(_stateMachine.CurrentState);
 
             UpdateSensors();
             _stateMachine.Update();
@@ -193,6 +201,15 @@ namespace Longinus.EnemySystem
         public void ClearLastKnownPosition()
         {
             HasLastKnownPosition = false;
+        }
+
+        /// <summary>
+        /// Checks if the player is far enough to exit the combat strafe/attack sequence (Hysteresis).
+        /// </summary>
+        public bool IsPlayerOutOfAttackExitRange()
+        {
+            if (_playerTransform == null) return true;
+            return (transform.position - _playerTransform.position).sqrMagnitude > _sqrExitAttackRange;
         }
 
         /// <summary>
@@ -261,7 +278,6 @@ namespace Longinus.EnemySystem
             MovementManager.Stop();
 
             _stateMachine.ChangeState(DeadState);
-            Animator.Play(Animator.StringToHash("Death")); 
         }
 
         /// <summary>

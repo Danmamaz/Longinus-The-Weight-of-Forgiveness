@@ -121,6 +121,17 @@ namespace Longinus.EnemySystem
         }
 
         /// <summary>
+        /// Completely disables or enables the NavMeshAgent to prevent sliding during physics/root motion actions.
+        /// </summary>
+        public void SetAgentActive(bool isActive)
+        {
+            if (_agent != null && _agent.enabled != isActive)
+            {
+                _agent.enabled = isActive;
+            }
+        }
+
+        /// <summary>
         /// Allows the NavMeshAgent to automatically update its rotation along the path.
         /// </summary>
         public void UnlockRotation()

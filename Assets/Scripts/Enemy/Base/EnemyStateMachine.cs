@@ -143,8 +143,6 @@ namespace Longinus.EnemySystem
     /// </summary>
     public class EnemyChaseState : EnemyBaseState
     {
-        private readonly int _animChaseHash = Animator.StringToHash("Chase");
-
         public EnemyChaseState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
 
         #region State/Core Logic
@@ -152,7 +150,9 @@ namespace Longinus.EnemySystem
         public override void EnterState()
         {
             _ctx.MovementManager.Chase();
-            _ctx.Animator.Play(_animChaseHash);
+            _ctx.MovementManager.SetAgentActive(true);
+            _ctx.Animator.SetBool("IsMoving", true);
+            _ctx.Animator.CrossFadeInFixedTime("Walking", .2f);
         }
 
         public override void UpdateState()
@@ -165,6 +165,8 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.Stop();
+            _ctx.Animator.SetBool("IsMoving", false);
+
         }
 
         public override void CheckSwitchState()
@@ -191,8 +193,6 @@ namespace Longinus.EnemySystem
         
         #region Private Variables
         
-        private readonly int _animLightAttack = Animator.StringToHash("LightAttack");
-        private readonly int _animHeavyAttack = Animator.StringToHash("HeavyAttack");
         private bool _attackFinished;
         
         #endregion
@@ -209,10 +209,8 @@ namespace Longinus.EnemySystem
             CurrentPhase = AttackPhase.WindUp;
 
             _ctx.MovementManager.Stop();
-
-            // Simple randomization for now; can be extracted to a weight-based decision system later
-            bool isHeavyAttack = UnityEngine.Random.value > 0.7f;
-            _ctx.Animator.Play(isHeavyAttack ? _animHeavyAttack : _animLightAttack);
+            
+            _ctx.Animator.SetTrigger("LightAttack");
         }
 
         public override void UpdateState()
@@ -228,6 +226,7 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.UnlockRotation();
+            _ctx.MovementManager.SetAgentActive(true);
         }
 
         public override void CheckSwitchState()
@@ -256,6 +255,7 @@ namespace Longinus.EnemySystem
         {
             CurrentPhase = AttackPhase.Active;
             _ctx.MovementManager.LockRotation();
+            _ctx.MovementManager.SetAgentActive(false);
         }
 
         public void OnActiveEnd()
@@ -277,7 +277,6 @@ namespace Longinus.EnemySystem
     /// </summary>
     public class EnemyPatrolState : EnemyBaseState
     {
-        private readonly int _animPatrolHash = Animator.StringToHash("Patrol");
         private int _currentWaypointIndex;
 
         public EnemyPatrolState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine)
@@ -289,7 +288,7 @@ namespace Longinus.EnemySystem
 
         public override void EnterState()
         {
-            _ctx.Animator.Play(_animPatrolHash);
+            _ctx.Animator.SetBool("IsMoving", true);
             MoveToNextWaypoint();
         }
 
@@ -309,6 +308,7 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.Stop();
+            _ctx.Animator.SetBool("IsMoving", true);
         }
 
         public override void CheckSwitchState()
@@ -345,6 +345,8 @@ namespace Longinus.EnemySystem
 
         public override void EnterState()
         {
+            _ctx.Animator.SetBool("IsWalking", true);
+            
             if (_ctx.HasLastKnownPosition)
             {
                 _ctx.MovementManager.MoveToPosition(_ctx.LastKnownPlayerPosition);
@@ -357,6 +359,7 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.Stop();
+            _ctx.Animator.SetBool("IsWalking", false);
         }
 
         public override void CheckSwitchState()
@@ -396,7 +399,6 @@ namespace Longinus.EnemySystem
     {
         #region Private Variables
         
-        private readonly int _animStrafeHash = Animator.StringToHash("CombatStrafe");
         private float _strafeTimer;
         private float _strafeDuration;
         private float _strafeDirection;
@@ -409,7 +411,7 @@ namespace Longinus.EnemySystem
 
         public override void EnterState()
         {
-            _ctx.Animator.Play(_animStrafeHash);
+            _ctx.Animator.SetTrigger("WindUp");
             _ctx.MovementManager.Stop();
 
             _strafeDuration = UnityEngine.Random.Range(0.8f, 2.0f);
@@ -445,15 +447,19 @@ namespace Longinus.EnemySystem
                 return;
             }
 
-            if (_strafeTimer >= _strafeDuration && _ctx.IsPlayerInAttackRange())
+            if (_strafeTimer >= _strafeDuration)
             {
-                _stateMachine.ChangeState(_ctx.AttackState);
-            }
-            else if (!_ctx.IsPlayerInAttackRange())
-            {
-                _stateMachine.ChangeState(_ctx.ChaseState);
+                if (!_ctx.IsPlayerOutOfAttackExitRange()) 
+                {
+                    _stateMachine.ChangeState(_ctx.AttackState);
+                }
+                else
+                {
+                    _stateMachine.ChangeState(_ctx.ChaseState);
+                }
             }
         }
+        
         
         #endregion
     }
@@ -463,7 +469,6 @@ namespace Longinus.EnemySystem
     /// </summary>
     public class EnemyStaggeredState : EnemyBaseState
     {
-        private readonly int _animStagger = Animator.StringToHash("Stagger");
         private bool _isFinished;
 
         public EnemyStaggeredState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
@@ -475,7 +480,7 @@ namespace Longinus.EnemySystem
             _isFinished = false;
             _ctx.MovementManager.Stop();
             _ctx.MovementManager.UnlockRotation();
-            _ctx.Animator.Play(_animStagger);
+            _ctx.Animator.SetTrigger("Stagger");
         }
 
         public override void UpdateState() { }
@@ -588,11 +593,14 @@ namespace Longinus.EnemySystem
     {
         public EnemyDeadState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine) { }
 
+
         #region State/Core Logic
 
         public override void EnterState()
         {
             _ctx.MovementManager.Stop();
+            _ctx.Animator.SetTrigger("Die");
+
         }
 
         public override void UpdateState() { }
