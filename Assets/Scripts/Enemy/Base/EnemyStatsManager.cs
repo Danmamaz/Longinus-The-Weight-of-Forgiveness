@@ -34,7 +34,8 @@ namespace Longinus.EnemySystem
         
         private bool _isDead;
         private float _timeSinceLastHit;
-
+        private EnemyController _controller;
+        
         #endregion
 
         #region Public Properties
@@ -58,6 +59,11 @@ namespace Longinus.EnemySystem
         #endregion
 
         #region Unity Lifecycle
+
+        private void Awake()
+        {
+            _controller = GetComponent<EnemyController>();
+        }
 
         private void OnEnable()
         {
@@ -85,12 +91,16 @@ namespace Longinus.EnemySystem
         /// </summary>
         public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
         {
-
             CurrentHealth -= amount;
             CurrentPoise -= poiseDamage;
             _timeSinceLastHit = 0f;
             
             OnDamageTaken?.Invoke(amount, CurrentHealth);
+
+            if (_controller != null)
+            {
+                _controller.ApplyKnockback(hitPoint);
+            }
 
             if (CurrentPoise <= 0)
             {
@@ -122,6 +132,7 @@ namespace Longinus.EnemySystem
         private void Die()
         {
             if (_isDead) return;
+
             CurrentHealth = 0;
 
             if (_isSpareable)

@@ -345,7 +345,7 @@ namespace Longinus.EnemySystem
 
         public override void EnterState()
         {
-            _ctx.Animator.SetBool("IsWalking", true);
+            _ctx.Animator.SetBool("IsMoving", true);
             
             if (_ctx.HasLastKnownPosition)
             {
@@ -359,7 +359,7 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.Stop();
-            _ctx.Animator.SetBool("IsWalking", false);
+            _ctx.Animator.SetBool("IsMoving", false);
         }
 
         public override void CheckSwitchState()

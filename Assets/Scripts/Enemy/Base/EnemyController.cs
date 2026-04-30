@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 namespace Longinus.EnemySystem
 {
@@ -23,9 +24,9 @@ namespace Longinus.EnemySystem
         [Header("AI Sensors & Settings")]
         [SerializeField, Tooltip("Maximum distance the enemy can detect the player.")] 
         private float _detectionRange = 10f;
+
         [SerializeField, Tooltip("Multiplier for attack range to exit combat states. Prevents state flickering.")] 
         private float _exitAttackRangeMultiplier = 1.2f;
-
         private float _sqrExitAttackRange;
         
         [SerializeField, Tooltip("Vision cone angle in degrees.")] 
@@ -38,9 +39,9 @@ namespace Longinus.EnemySystem
         public Transform[] PatrolWaypoints;
         public bool IsPatrollingEnemy;
 
-        [Header("Boss Choice")]
-        [SerializeField, Tooltip("Unique identifier for PlotManager to track decisions related to this entity.")] 
-        private string _decisionId = "boss_01";
+        [Header("Combat Feel")]
+        [SerializeField, Tooltip("Force of the hardcoded knockback")]
+        private float _knockbackForce = 10f;
         
         #endregion
 
@@ -52,12 +53,14 @@ namespace Longinus.EnemySystem
         private float _sqrAttackRange;
         private Vector3 _startPosition;
         private Quaternion _startRotation;
+        private Coroutine _knockbackCoroutine;
         public static System.Collections.Generic.List<EnemyController> AllEnemies = new();
         
         #endregion
 
         #region Public Properties
 
+        public static EnemyController Instance;
         public Animator Animator { get; private set; }
         public EnemyMovementManager MovementManager { get; private set; }
         public EnemyStatsManager StatsManager { get; private set; }
@@ -75,7 +78,6 @@ namespace Longinus.EnemySystem
         public bool HasLastKnownPosition { get; private set; }
         public Vector3 LastKnownPlayerPosition { get; private set; }
         public Transform PlayerTransform => _playerTransform;
-        public string DecisionId => _decisionId;
         
         #endregion
 
@@ -83,6 +85,7 @@ namespace Longinus.EnemySystem
 
         private void Awake()
         {
+            Instance = this;
             Animator = GetComponent<Animator>();
             MovementManager = GetComponent<EnemyMovementManager>();
             StatsManager = GetComponent<EnemyStatsManager>();
@@ -97,6 +100,7 @@ namespace Longinus.EnemySystem
             _startRotation = transform.rotation;
 
             _stateMachine = new EnemyStateMachine();
+
             IdleState = new EnemyIdleState(this, _stateMachine);
             ChaseState = new EnemyChaseState(this, _stateMachine);
             AttackState = new EnemyAttackState(this, _stateMachine);
@@ -123,7 +127,6 @@ namespace Longinus.EnemySystem
         {
             _isDead = false;
             ClearLastKnownPosition();
-
             AllEnemies.Add(this);
             
             StatsManager.OnDeath += HandleDeath;
@@ -146,8 +149,8 @@ namespace Longinus.EnemySystem
         private void Update()
         {
             if (_isDead) return;
-            Debug.Log(_stateMachine.CurrentState);
 
+            Debug.Log(_stateMachine.CurrentState);
             UpdateSensors();
             _stateMachine.Update();
         }
@@ -192,6 +195,7 @@ namespace Longinus.EnemySystem
         public bool HasReachedLastKnownPosition()
         {
             if (!HasLastKnownPosition) return true;
+
             return MovementManager.ReachedDestination();
         }
 
@@ -209,6 +213,7 @@ namespace Longinus.EnemySystem
         public bool IsPlayerOutOfAttackExitRange()
         {
             if (_playerTransform == null) return true;
+
             return (transform.position - _playerTransform.position).sqrMagnitude > _sqrExitAttackRange;
         }
 
@@ -243,6 +248,7 @@ namespace Longinus.EnemySystem
         public bool IsPlayerInAttackRange()
         {
             if (_playerTransform == null) return false;
+
             return (transform.position - _playerTransform.position).sqrMagnitude <= _sqrAttackRange;
         }
 
@@ -263,6 +269,39 @@ namespace Longinus.EnemySystem
             Animator.Play("Idle");
         }
 
+        /// <summary>
+        /// Hardcoded physical knockback execution.
+        /// </summary>
+        public void ApplyKnockback(Vector3 hitPoint)
+        {
+            if (_isDead) return;
+
+            Vector3 direction = (transform.position - hitPoint).normalized;
+            direction.y = 0;
+            if (_knockbackCoroutine != null) StopCoroutine(_knockbackCoroutine);
+            _knockbackCoroutine = StartCoroutine(KnockbackRoutine(direction, _knockbackForce));
+        }
+
+        private IEnumerator KnockbackRoutine(Vector3 direction, float force)
+        {
+            MovementManager.SetAgentActive(false);
+
+            float duration = 0.15f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                transform.position += direction * force * Time.deltaTime;
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (!_isDead)
+            {
+                MovementManager.SetAgentActive(true);
+            }
+        }
+
         #endregion
 
         #region Event Listeners/Callbacks
@@ -273,10 +312,10 @@ namespace Longinus.EnemySystem
         private void HandleDeath()
         {
             if (_isDead) return;
+
             _isDead = true;
             
             MovementManager.Stop();
-
             _stateMachine.ChangeState(DeadState);
         }
 
@@ -286,6 +325,7 @@ namespace Longinus.EnemySystem
         private void HandlePoiseBreak()
         {
             if (_isDead) return;
+
             _stateMachine.ChangeState(StaggeredState);
         }
 
@@ -295,6 +335,7 @@ namespace Longinus.EnemySystem
         private void HandleSpareableDeath()
         {
             if (_isDead) return;
+
             _stateMachine.ChangeState(BossDeathChoiceState);
         }
 
