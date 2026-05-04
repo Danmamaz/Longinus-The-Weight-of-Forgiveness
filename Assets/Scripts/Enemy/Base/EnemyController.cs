@@ -34,6 +34,10 @@ namespace Longinus.EnemySystem
         
         [SerializeField, Tooltip("Distance threshold to transition into attack state.")] 
         private float _attackRange = 2f;
+
+        [SerializeField, Tooltip("Radius where enemy hears the player regardless of FOV/Obstacles")]
+        private float _hearingRange = 4f; 
+        private float _sqrHearingRange;
         
         [Header("Patrol Settings")]
         public Transform[] PatrolWaypoints;
@@ -92,6 +96,7 @@ namespace Longinus.EnemySystem
 
             _sqrDetectionRange = _detectionRange * _detectionRange;
             _sqrAttackRange = _attackRange * _attackRange;
+            _sqrHearingRange = _hearingRange * _hearingRange;
 
             float exitRange = _attackRange * _exitAttackRangeMultiplier;
             _sqrExitAttackRange = exitRange * exitRange;
@@ -266,6 +271,7 @@ namespace Longinus.EnemySystem
                 if (col != null) col.enabled = true;
             }
             
+            Animator.SetBool("IsMoving", false);
             Animator.Play("Idle");
         }
 
@@ -300,6 +306,15 @@ namespace Longinus.EnemySystem
             {
                 MovementManager.SetAgentActive(true);
             }
+        }
+
+        /// <summary>
+        /// If the player is within this radius, they are instantly detected.
+        /// </summary>
+        public bool IsPlayerHeard()
+        {
+            if (_playerTransform == null) return false;
+            return (transform.position - _playerTransform.position).sqrMagnitude <= _sqrHearingRange;
         }
 
         #endregion

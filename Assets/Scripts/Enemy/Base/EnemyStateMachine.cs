@@ -125,11 +125,11 @@ namespace Longinus.EnemySystem
             {
                 _stateMachine.ChangeState(_ctx.AttackState);
             }
-            else if (_ctx.IsPlayerInDetectionRange())
+            else if (_ctx.IsPlayerInDetectionRange() || _ctx.IsPlayerHeard()) 
             {
                 _stateMachine.ChangeState(_ctx.ChaseState);
             }
-            else if (_ctx.IsPatrollingEnemy) // Note: Requires exposing IsPatrollingEnemy in EnemyController
+            else if (_ctx.IsPatrollingEnemy) 
             {
                 _stateMachine.ChangeState(_ctx.PatrolState);
             }
@@ -317,7 +317,7 @@ namespace Longinus.EnemySystem
             {
                 _stateMachine.ChangeState(_ctx.AttackState);
             }
-            else if (_ctx.IsPlayerInDetectionRange())
+            else if (_ctx.IsPlayerInDetectionRange() || _ctx.IsPlayerHeard()) 
             {
                 _stateMachine.ChangeState(_ctx.ChaseState);
             }
@@ -364,12 +364,11 @@ namespace Longinus.EnemySystem
 
         public override void CheckSwitchState()
         {
-            if (_ctx.IsPlayerInDetectionRange())
+            if (_ctx.IsPlayerInDetectionRange() || _ctx.IsPlayerHeard()) 
             {
                 _stateMachine.ChangeState(_ctx.ChaseState);
                 return;
             }
-
             if (_ctx.HasReachedLastKnownPosition() || !_ctx.HasLastKnownPosition)
             {
                 _ctx.ClearLastKnownPosition();
