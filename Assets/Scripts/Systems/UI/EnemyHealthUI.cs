@@ -4,30 +4,42 @@ using Longinus.EnemySystem;
 
 namespace Longinus.UI
 {
+    /// <summary>
+    /// Displays the enemy's current health on a Slider and triggers a flash animation on death.
+    /// </summary>
     public class EnemyHealthUI : MonoBehaviour
     {
+        #region Constants & Inspector Variables
+
         [Header("References")]
-        [SerializeField, Tooltip("Посилання на EnemyStatsManager ворога")] 
+        [SerializeField, Tooltip("EnemyStatsManager of the enemy this UI belongs to.")]
         private EnemyStatsManager _enemyStats;
-        
-        [SerializeField, Tooltip("Слайдер здоров'я ворога")] 
+
+        [SerializeField, Tooltip("Slider representing the enemy's current health.")]
         private Slider _healthSlider;
+
+        #endregion
+
+        #region Private Variables
+
         private Animator _animator;
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void Start()
         {
             _animator = GetComponent<Animator>();
             if (_enemyStats == null || _healthSlider == null || _animator == null)
             {
-                Debug.LogError("[EnemyHealthUI] Не призначені посилання в інспекторі!");
+                Debug.LogError("[EnemyHealthUI] Missing references in Inspector!");
                 return;
             }
 
-            // Налаштовуємо максимуми слайдера під параметри ворога
             _healthSlider.maxValue = _enemyStats.MaxHealth;
-            _healthSlider.value = _enemyStats.MaxHealth; // При старті здоров'я повне
+            _healthSlider.value = _enemyStats.MaxHealth;
 
-            // Підписуємось на подію отримання шкоди
             _enemyStats.OnDamageTaken += UpdateHealthBar;
         }
 
@@ -39,11 +51,16 @@ namespace Longinus.UI
             }
         }
 
-        // Подія OnDamageTaken передає кількість шкоди і поточне здоров'я. Нам треба тільки друге.
+        #endregion
+
+        #region Event Listeners/Callbacks
+
         private void UpdateHealthBar(float damageAmount, float currentHealth)
         {
             _healthSlider.value = currentHealth;
             if (currentHealth <= 0) _animator.SetTrigger("Flash");
         }
+
+        #endregion
     }
 }

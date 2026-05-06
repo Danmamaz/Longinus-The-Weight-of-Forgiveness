@@ -1,7 +1,6 @@
-using System.Text;
+using System.Collections;
 using UnityEngine;
 using Longinus.Player;
-using System.Collections;
 
 namespace Longinus.UI
 {
@@ -32,7 +31,6 @@ namespace Longinus.UI
         #region Private Variables
         
         private bool _isPaused;
-        private readonly StringBuilder _interactableStringBuilder = new StringBuilder();
         
         #endregion
 
@@ -98,14 +96,7 @@ namespace Longinus.UI
         {
             if (_deathScreen != null)
             {
-                StartCoroutine(Wait());
                 _deathScreen.SetActive(true);
-            }
-
-
-            IEnumerator Wait()
-            {
-                yield return new WaitForSeconds(2f);
             }
         }
 

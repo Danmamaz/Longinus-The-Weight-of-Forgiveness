@@ -1,31 +1,63 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class DeathScreenAnimatorBridge : MonoBehaviour
+namespace Longinus.UI
 {
-    [Range(0f, 1f)]
-    [Tooltip("Keyframe this variable in the Animation Window")]
-    public float revealProgress = 0f;
-    [SerializeField] Image deathTextImage;
-
-    private Material deathMaterial;
-
-    void Awake()
+    /// <summary>
+    /// Bridges the death text reveal shader to the Animator by driving the _RevealProgress
+    /// material property from a keyframeable inspector float. Instantiates the material
+    /// to prevent modifying the shared project asset.
+    /// </summary>
+    public class DeathScreenAnimationBridge : MonoBehaviour
     {
-        if (deathTextImage.material != null)
-        {
-            deathTextImage.material = new Material(deathTextImage.material);
-            deathMaterial = deathTextImage.material;
-            
-            deathMaterial.SetFloat("_RevealProgress", 0f);
-        }
-    }
+        #region Constants & Inspector Variables
 
-    void Update()
-    {
-        if (deathMaterial != null)
+        [Range(0f, 1f)]
+        [Tooltip("Keyframe this value in the Animation Window to drive the text reveal effect.")]
+        public float revealProgress = 0f;
+
+        [SerializeField]
+        private Image deathTextImage;
+
+        #endregion
+
+        #region Private Variables
+
+        private Material _deathMaterial;
+
+        // Cached to avoid string lookup each frame
+        private static readonly int RevealProgressID = Shader.PropertyToID("_RevealProgress");
+
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            deathMaterial.SetFloat("_RevealProgress", revealProgress);
+            if (deathTextImage != null && deathTextImage.material != null)
+            {
+                _deathMaterial = new Material(deathTextImage.material);
+                deathTextImage.material = _deathMaterial;
+                _deathMaterial.SetFloat(RevealProgressID, 0f);
+            }
         }
+
+        private void Update()
+        {
+            if (_deathMaterial != null)
+            {
+                _deathMaterial.SetFloat(RevealProgressID, revealProgress);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_deathMaterial != null)
+            {
+                Destroy(_deathMaterial);
+            }
+        }
+
+        #endregion
     }
 }

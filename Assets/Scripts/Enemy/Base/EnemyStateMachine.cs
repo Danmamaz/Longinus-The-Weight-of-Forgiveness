@@ -1,6 +1,4 @@
-using System;
 using UnityEngine;
-using Longinus.PlotSystem;
 
 namespace Longinus.EnemySystem
 {
@@ -308,7 +306,7 @@ namespace Longinus.EnemySystem
         public override void ExitState()
         {
             _ctx.MovementManager.Stop();
-            _ctx.Animator.SetBool("IsMoving", true);
+            _ctx.Animator.SetBool("IsMoving", false);
         }
 
         public override void CheckSwitchState()
@@ -530,8 +528,6 @@ namespace Longinus.EnemySystem
 
             _ctx.MovementManager.Stop();
             _ctx.Animator.Play(_animStaggerHash);
-
-            _ctx.StatsManager.OnChoicePhaseDamaged += OnPlayerHit;
         }
 
         public override void UpdateState()
@@ -548,27 +544,13 @@ namespace Longinus.EnemySystem
 
         public override void FixedUpdateState() { }
 
-        public override void ExitState()
-        {
-            _ctx.StatsManager.OnChoicePhaseDamaged -= OnPlayerHit;
-        }
+        public override void ExitState() { }
 
         public override void CheckSwitchState() { }
         
         #endregion
         
         #region Event Listeners/Callbacks
-
-        /// <summary>
-        /// Executes the kill sequence if the player attacks the boss during the choice phase.
-        /// </summary>
-        private void OnPlayerHit()
-        {
-            if (_choiceMade) return;
-            _choiceMade = true;
-
-            _ctx.StatsManager.ExecuteFinalDeath(); 
-        }
 
         /// <summary>
         /// Executes the spare sequence if the player waits out the timer.

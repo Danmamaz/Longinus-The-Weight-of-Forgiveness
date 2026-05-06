@@ -64,7 +64,6 @@ namespace Longinus.EnemySystem
 
         #region Public Properties
 
-        public static EnemyController Instance;
         public Animator Animator { get; private set; }
         public EnemyMovementManager MovementManager { get; private set; }
         public EnemyStatsManager StatsManager { get; private set; }
@@ -77,7 +76,7 @@ namespace Longinus.EnemySystem
         public EnemyCombatStrafeState CombatStrafeState { get; private set; }
         public EnemyStaggeredState StaggeredState { get; private set; }
         public EnemyBossDeathChoiceState BossDeathChoiceState { get; private set; }
-        public EnemyDeadState DeadState { get; private set; } // Added to enforce hard stop
+        public EnemyDeadState DeadState { get; private set; }
 
         public bool HasLastKnownPosition { get; private set; }
         public Vector3 LastKnownPlayerPosition { get; private set; }
@@ -89,7 +88,6 @@ namespace Longinus.EnemySystem
 
         private void Awake()
         {
-            Instance = this;
             Animator = GetComponent<Animator>();
             MovementManager = GetComponent<EnemyMovementManager>();
             StatsManager = GetComponent<EnemyStatsManager>();
@@ -155,7 +153,6 @@ namespace Longinus.EnemySystem
         {
             if (_isDead) return;
 
-            Debug.Log(_stateMachine.CurrentState);
             UpdateSensors();
             _stateMachine.Update();
         }

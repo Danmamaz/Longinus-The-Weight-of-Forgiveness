@@ -73,7 +73,7 @@ namespace Longinus.Player
             CurrentHealth = _maxHealth;
             CurrentStamina = _maxStamina;
             CurrentMana = _maxMana;
-            CurrentUltimate = 0f; // Ульта зазвичай накопичується з нуля
+            CurrentUltimate = 0f;
             
             _staminaRegenerationTimer = 0f;
             _isDead = false;
@@ -105,6 +105,9 @@ namespace Longinus.Player
             }
         }
         
+        /// <summary>
+        /// Deducts stamina and resets the regen delay timer. Returns false if dead or stamina is empty.
+        /// </summary>
         public bool TryConsumeStamina(float amount)
         {
             if (_isDead || CurrentStamina <= 0f) return false;

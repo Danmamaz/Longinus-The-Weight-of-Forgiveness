@@ -1,47 +1,67 @@
 using UnityEngine;
 using Longinus.PlotSystem;
 
-public class Door : MonoBehaviour
+namespace Longinus.InGameItems
 {
-    public string requiredFlagID; 
-
-    private void Start()
+    /// <summary>
+    /// A world-space door that opens when a required plot flag is set.
+    /// Registers to PlotManager's global flag event to react to story progression in real time.
+    /// </summary>
+    public class Door : MonoBehaviour
     {
-        if (PlotManager.Instance != null && PlotManager.Instance.CheckFlag(requiredFlagID))
-        {
-            OpenDoorInstantly();
-            return;
-        }
+        #region Constants & Inspector Variables
 
-        if (PlotManager.Instance != null)
+        [Header("Plot Settings")]
+        [SerializeField, Tooltip("Flag ID that must be set for this door to open.")]
+        public string requiredFlagID;
+
+        #endregion
+
+        #region Unity Lifecycle
+
+        private void Start()
         {
+            if (PlotManager.Instance == null) return;
+
+            if (PlotManager.Instance.CheckFlag(requiredFlagID))
+            {
+                OpenDoorInstantly();
+                return;
+            }
+
             PlotManager.Instance.OnFlagUpdated.AddListener(OnGlobalFlagUpdated);
         }
-    }
 
-    private void OnDestroy()
-    {
-        if (PlotManager.Instance != null)
+        private void OnDestroy()
         {
-            PlotManager.Instance.OnFlagUpdated.RemoveListener(OnGlobalFlagUpdated);
+            if (PlotManager.Instance != null)
+            {
+                PlotManager.Instance.OnFlagUpdated.RemoveListener(OnGlobalFlagUpdated);
+            }
         }
-    }
 
-    private void OnGlobalFlagUpdated(string updatedFlagID)
-    {
-        if (updatedFlagID == requiredFlagID)
+        #endregion
+
+        #region State/Core Logic
+
+        private void OnGlobalFlagUpdated(string updatedFlagID)
         {
-            OpenDoorWithAnimation();
+            if (updatedFlagID == requiredFlagID)
+            {
+                OpenDoorWithAnimation();
+            }
         }
-    }
 
-    private void OpenDoorInstantly()
-    {
-        Debug.Log($"[Door] {name} is already open.");
-    }
+        private void OpenDoorInstantly()
+        {
+            Debug.Log($"[Door] {name} is already open.");
+        }
 
-    private void OpenDoorWithAnimation()
-    {
-        Debug.Log($"[Door] {name} is opening now!");
+        private void OpenDoorWithAnimation()
+        {
+            Debug.Log($"[Door] {name} is opening now!");
+        }
+
+        #endregion
     }
 }

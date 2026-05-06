@@ -54,7 +54,6 @@ namespace Longinus.EnemySystem
         public event Action OnDeath;
         public event Action<float, float> OnDamageTaken;
         public event Action OnSpareableDeath;
-        public event Action OnChoicePhaseDamaged;
         
         #endregion
 

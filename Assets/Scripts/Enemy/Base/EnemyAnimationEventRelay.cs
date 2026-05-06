@@ -1,5 +1,4 @@
 using UnityEngine;
-using Longinus.EnemySystem;
 using Longinus.InGameItems;
 
 namespace Longinus.EnemySystem

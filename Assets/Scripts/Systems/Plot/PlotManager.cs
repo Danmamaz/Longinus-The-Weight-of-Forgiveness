@@ -5,20 +5,30 @@ using UnityEngine.Events;
 namespace Longinus.PlotSystem
 {
     /// <summary>
-    /// Прагматичний хаб. Тільки читає/пише стан і кричить на всю гру, якщо щось змінилося.
+    /// Central hub for story state. Reads and writes PlotState flags and broadcasts changes
+    /// to all listeners via OnFlagUpdated. Persists across scenes via DontDestroyOnLoad.
     /// </summary>
     public class PlotManager : MonoBehaviour
     {
-        public static PlotManager Instance { get; private set; }
+        #region Constants & Inspector Variables
 
         [Header("Configuration")]
         [SerializeField] private PlotState _plotState;
 
         [Header("Global Events")]
-        [Tooltip("Спрацьовує, коли будь-який прапорець встановлюється. Ідеально для оновлення UI або локацій.")]
+        [Tooltip("Fires whenever any flag is set. Subscribe to update UI, unlock doors, or trigger dialogue.")]
         public UnityEvent<string> OnFlagUpdated;
 
+        #endregion
+
+        #region Public Properties
+
+        public static PlotManager Instance { get; private set; }
         public PlotState PlotState => _plotState;
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void Awake()
         {
@@ -31,8 +41,13 @@ namespace Longinus.PlotSystem
             DontDestroyOnLoad(gameObject);
         }
 
+        #endregion
+
+        #region State/Core Logic
+
         /// <summary>
-        /// Перевіряє список умов (наприклад, для активації діалогу чи об'єкта)
+        /// Returns true if every condition in the list is satisfied by the current plot state.
+        /// An empty or null list is always considered met.
         /// </summary>
         public bool AreConditionsMet(List<PlotCondition> conditions)
         {
@@ -46,7 +61,8 @@ namespace Longinus.PlotSystem
         }
 
         /// <summary>
-        /// Застосовує список наслідків (наприклад, після вбивства боса)
+        /// Applies every consequence in the list to the current plot state and fires OnFlagUpdated
+        /// for each newly set flag.
         /// </summary>
         public void ApplyConsequences(List<PlotConsequence> consequences)
         {
@@ -55,8 +71,7 @@ namespace Longinus.PlotSystem
             foreach (var consequence in consequences)
             {
                 consequence.Apply(_plotState);
-                
-                // Якщо ми щойно поставили новий прапорець - повідомляємо всіх слухачів
+
                 if (consequence.SetFlag && !string.IsNullOrEmpty(consequence.FlagToSet))
                 {
                     OnFlagUpdated?.Invoke(consequence.FlagToSet);
@@ -64,19 +79,25 @@ namespace Longinus.PlotSystem
             }
         }
 
-        // --- Зручні шорткати для швидкого виклику зі скриптів зброї чи боса ---
-
+        /// <summary>
+        /// Sets a flag and broadcasts it to all listeners.
+        /// </summary>
         public void TriggerFlag(string flagId)
         {
             if (_plotState == null || string.IsNullOrEmpty(flagId)) return;
-            
+
             _plotState.SetFlag(flagId);
             OnFlagUpdated?.Invoke(flagId);
         }
 
+        /// <summary>
+        /// Returns true if the given flag has been set.
+        /// </summary>
         public bool CheckFlag(string flagId)
         {
             return _plotState != null && _plotState.HasFlag(flagId);
         }
+
+        #endregion
     }
 }

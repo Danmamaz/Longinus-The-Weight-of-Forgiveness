@@ -1,66 +1,79 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class StatDividerUI : MonoBehaviour
+namespace Longinus.UI
 {
-    [Header("Налаштування")]
-    [Tooltip("Значення стата, через яке ставиться рисочка (50 для HP, 25 для стаміни)")]
-    [SerializeField] private float statInterval = 25f;
-    
-    [Header("Посилання")]
-    [Tooltip("RectTransform самої смуги (для визначення її фізичної ширини)")]
-    [SerializeField] private RectTransform barRect;
-    [Tooltip("Префаб рисочки (Image з твоїм спрайтом)")]
-    [SerializeField] private GameObject dividerPrefab;
-    [Tooltip("Контейнер для рисочок (Pivot має бути X:0, Y:0.5)")]
-    [SerializeField] private RectTransform dividerContainer;
-
-    private List<GameObject> activeDividers = new List<GameObject>();
-    private Queue<GameObject> dividerPool = new Queue<GameObject>();
-
     /// <summary>
-    /// Викликай цей метод з PlayerStatsUI.cs ТІЛЬКИ коли змінюється МАКСИМАЛЬНЕ значення стата.
+    /// Spawns and positions visual divider marks along a stat bar at regular stat-value intervals.
+    /// Uses an object pool to avoid runtime allocation when max values change.
     /// </summary>
-    public void UpdateDividers(float maxStat)
+    public class StatDividerUI : MonoBehaviour
     {
-        if (maxStat <= 0 || statInterval <= 0) return;
+        #region Constants & Inspector Variables
 
-        int requiredDividers = Mathf.FloorToInt((maxStat - 0.1f) / statInterval);
-        float barWidth = barRect.rect.width;
+        [Header("Settings")]
+        [SerializeField, Tooltip("Stat value interval at which a divider mark is placed (e.g. 50 for HP, 25 for stamina).")]
+        private float statInterval = 25f;
 
-        foreach (var divider in activeDividers)
+        [Header("References")]
+        [SerializeField, Tooltip("RectTransform of the stat bar, used to measure its physical pixel width.")]
+        private RectTransform barRect;
+
+        [SerializeField, Tooltip("Divider prefab (an Image with the divider sprite).")]
+        private GameObject dividerPrefab;
+
+        [SerializeField, Tooltip("Container for divider instances. Pivot should be X:0, Y:0.5.")]
+        private RectTransform dividerContainer;
+
+        #endregion
+
+        #region Private Variables
+
+        private readonly List<GameObject> _activeDividers = new List<GameObject>();
+        private readonly Queue<GameObject> _dividerPool = new Queue<GameObject>();
+
+        #endregion
+
+        #region State/Core Logic
+
+        /// <summary>
+        /// Rebuilds all divider marks to match the new maximum stat value.
+        /// Call only when the maximum stat value changes, not every frame.
+        /// </summary>
+        public void UpdateDividers(float maxStat)
         {
-            divider.SetActive(false);
-            dividerPool.Enqueue(divider);
-        }
-        activeDividers.Clear();
+            if (maxStat <= 0 || statInterval <= 0) return;
 
-        for (int i = 1; i <= requiredDividers; i++)
-        {
-            GameObject divObj = GetDivider();
-            RectTransform divRect = divObj.GetComponent<RectTransform>();
-            
-            float normalizedPos = (i * statInterval) / maxStat;
-            float xPos = normalizedPos * barWidth;
+            int requiredDividers = Mathf.FloorToInt((maxStat - 0.1f) / statInterval);
+            float barWidth = barRect.rect.width;
 
-            divRect.anchoredPosition = new Vector2(xPos, 0f);
-        }
-    }
+            foreach (var divider in _activeDividers)
+            {
+                divider.SetActive(false);
+                _dividerPool.Enqueue(divider);
+            }
+            _activeDividers.Clear();
 
-    private GameObject GetDivider()
-    {
-        GameObject divObj;
-        if (dividerPool.Count > 0)
-        {
-            divObj = dividerPool.Dequeue();
+            for (int i = 1; i <= requiredDividers; i++)
+            {
+                GameObject divObj = GetDivider();
+                RectTransform divRect = divObj.GetComponent<RectTransform>();
+                float normalizedPos = (i * statInterval) / maxStat;
+                divRect.anchoredPosition = new Vector2(normalizedPos * barWidth, 0f);
+            }
         }
-        else
+
+        private GameObject GetDivider()
         {
-            divObj = Instantiate(dividerPrefab, dividerContainer);
+            GameObject divObj = _dividerPool.Count > 0
+                ? _dividerPool.Dequeue()
+                : Instantiate(dividerPrefab, dividerContainer);
+
+            divObj.SetActive(true);
+            _activeDividers.Add(divObj);
+            return divObj;
         }
-        
-        divObj.SetActive(true);
-        activeDividers.Add(divObj);
-        return divObj;
+
+        #endregion
     }
 }

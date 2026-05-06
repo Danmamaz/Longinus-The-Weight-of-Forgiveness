@@ -3,25 +3,42 @@ using Longinus.EnemySystem;
 
 namespace Longinus.InGameItems
 {
+    /// <summary>
+    /// Handles the player-facing kill-or-spare choice when a boss enters its spareable death phase.
+    /// Opens the left door on kill, right door on spare. The choice is resolved either by the player
+    /// landing another hit within the window, or by a 5-second mercy timer expiring.
+    /// </summary>
     [RequireComponent(typeof(EnemyStatsManager))]
     public class DecisionInteractable : MonoBehaviour
     {
-        [Header("Двері для вибору")]
+        #region Constants & Inspector Variables
+
+        [Header("Door Animators")]
         [SerializeField] private Animator _leftDoorAnimator;
         [SerializeField] private Animator _rightDoorAnimator;
+
+        [Header("VFX")]
         [SerializeField] private GameObject _blueFlash;
         [SerializeField] private GameObject _redFlash;
 
+        #endregion
+
+        #region Private Variables
+
         private EnemyStatsManager _enemyStats;
-        private bool _isWaitingForChoice = false;
+        private bool _isWaitingForChoice;
         private Collider _collider;
         private int _originalLayer;
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void Awake()
         {
             _enemyStats = GetComponent<EnemyStatsManager>();
             _collider = GetComponent<Collider>();
-            _originalLayer = gameObject.layer; // Запам'ятовуємо шар (Enemy)
+            _originalLayer = gameObject.layer;
 
             _enemyStats.OnSpareableDeath += StartChoicePhase;
             _enemyStats.OnDamageTaken += HandleFollowUpHit;
@@ -36,29 +53,33 @@ namespace Longinus.InGameItems
             }
         }
 
+        #endregion
+
+        #region State/Core Logic
+
         private void StartChoicePhase()
         {
             _isWaitingForChoice = true;
-            
-            // 1. Таймер через Invoke не залежить від Update()
-            Invoke(nameof(ExecuteSpareChoice), 5f); 
 
-            // 2. ХАК: Даємо машині станів 0.1 сек на вимкнення коллайдера, а потім брутально вмикаємо його назад
+            Invoke(nameof(ExecuteSpareChoice), 5f);
+
+            // The state machine disables the hitbox collider on death entry; re-enable it after one
+            // frame so the player can still land a killing blow during the choice window.
             Invoke(nameof(ForceEnableHitbox), 0.1f);
         }
 
         private void ForceEnableHitbox()
         {
             if (_collider != null) _collider.enabled = true;
-            gameObject.layer = _originalLayer; // Повертаємо шар "Enemy"
-            Debug.Log("[Decision] Коллайдер і шар примусово відновлено. Бий його!");
+            gameObject.layer = _originalLayer;
+            Debug.Log("[DecisionInteractable] Hitbox re-enabled. Choice window is open.");
         }
 
         private void HandleFollowUpHit(float damage, float currentHealth)
         {
             if (_isWaitingForChoice)
             {
-                CancelInvoke(nameof(ExecuteSpareChoice)); // Зупиняємо таймер 5 секунд
+                CancelInvoke(nameof(ExecuteSpareChoice));
                 ExecuteKillChoice();
             }
         }
@@ -66,21 +87,22 @@ namespace Longinus.InGameItems
         private void ExecuteKillChoice()
         {
             _isWaitingForChoice = false;
-            Debug.Log("[Decision] Вибір: ДОБИТИ. Відкриваємо ліві двері.");
+            Debug.Log("[DecisionInteractable] Choice: KILL. Opening left door.");
             _redFlash.SetActive(true);
-            _enemyStats.ExecuteFinalDeath(); 
+            _enemyStats.ExecuteFinalDeath();
             if (_leftDoorAnimator != null) _leftDoorAnimator.SetTrigger("Open");
         }
 
         private void ExecuteSpareChoice()
         {
             if (!_isWaitingForChoice) return;
-            
-            _blueFlash.SetActive(true);
+
             _isWaitingForChoice = false;
-            Debug.Log("[Decision] Час вийшов. Вибір: ПОЩАДА. Відкриваємо праві двері.");
-            
+            Debug.Log("[DecisionInteractable] Timer expired. Choice: SPARE. Opening right door.");
+            _blueFlash.SetActive(true);
             if (_rightDoorAnimator != null) _rightDoorAnimator.SetTrigger("Open");
         }
+
+        #endregion
     }
 }
