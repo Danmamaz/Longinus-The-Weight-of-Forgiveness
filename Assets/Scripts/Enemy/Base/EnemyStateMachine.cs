@@ -591,4 +591,332 @@ namespace Longinus.EnemySystem
 
         #endregion
     }
+
+    /// <summary>
+    /// Boss-specific attack state. Selects a weighted-random <see cref="BossAttackDefinition"/>
+    /// each entry, fires the corresponding Animator trigger, and re-selects on re-entry.
+    /// Inherits <see cref="EnemyAttackState"/> so it occupies the same override slot.
+    /// </summary>
+    public class BossAttackState : EnemyAttackState
+    {
+        #region Private Variables
+
+        private BossAttackDefinition _currentAttack;
+        private readonly BossAttackSelector _selector;
+        private readonly BossController _boss;
+        private bool _attackFinished;
+
+        #endregion
+
+        public BossAttackState(EnemyController ctx, EnemyStateMachine sm,
+            BossController boss, BossAttackSelector selector) : base(ctx, sm)
+        {
+            _boss = boss;
+            _selector = selector;
+        }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _attackFinished = false;
+            _ctx.MovementManager.Stop();
+
+            float dist = Vector3.Distance(_ctx.transform.position, _ctx.PlayerTransform.position);
+            _currentAttack = _selector.SelectAttack(dist);
+
+            if (_currentAttack == null)
+            {
+                _stateMachine.ChangeState(_ctx.CombatStrafeState);
+                return;
+            }
+
+            _ctx.MovementManager.LockRotation();
+            _ctx.Animator.SetTrigger(_currentAttack.AnimatorTrigger);
+            _selector.MarkAttackUsed(_currentAttack);
+        }
+
+        public override void UpdateState()
+        {
+            _ctx.MovementManager.FaceTarget();
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
+        {
+            _ctx.MovementManager.UnlockRotation();
+            _ctx.MovementManager.SetAgentActive(true);
+        }
+
+        public override void CheckSwitchState()
+        {
+            if (!_attackFinished) return;
+
+            if (_boss.CurrentPhase == BossController.BossPhase.Phase2)
+            {
+                _stateMachine.ChangeState(_ctx.CombatStrafeState);
+                return;
+            }
+
+            if (_ctx.IsPlayerInAttackRange())
+            {
+                // Re-select a new attack without leaving the state — same pattern as EnemyShootState.
+                EnterState();
+            }
+            else
+            {
+                _stateMachine.ChangeState(_ctx.ChaseState);
+            }
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Called by <see cref="EnemyAnimationEventRelay.OnBossAttackFinished"/> to signal completion.
+        /// Uses <c>new</c> to hide base-class field — relay casts explicitly to BossAttackState.
+        /// </summary>
+        public new void OnAttackFinished() => _attackFinished = true;
+
+        /// <summary>
+        /// Returns the active bone group name so the relay knows which group to enable/disable.
+        /// </summary>
+        public string GetCurrentBoneGroup() => _currentAttack?.BoneGroupName;
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Ranged-enemy repositioning state. Moves away from the player with a lateral drift while
+    /// maintaining line of sight, then hands off to ShootState when a clear firing window opens.
+    /// </summary>
+    public class EnemyKiteState : EnemyBaseState
+    {
+        #region Private Variables
+
+        private float _kiteTimer;
+        private float _kiteDuration;
+        private Vector3 _kiteDirection;
+        private readonly RangedEnemyController _rangedCtx;
+
+        #endregion
+
+        public EnemyKiteState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine)
+        {
+            _rangedCtx = ctx.GetComponent<RangedEnemyController>();
+        }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _kiteDuration = UnityEngine.Random.Range(1f, 2.5f);
+            _kiteTimer = 0f;
+            ComputeKiteDirection();
+            _ctx.MovementManager.SetAgentActive(true);
+            _ctx.Animator.SetBool("IsMoving", true);
+        }
+
+        public override void UpdateState()
+        {
+            _kiteTimer += Time.deltaTime;
+            ComputeKiteDirection();
+            _ctx.MovementManager.MoveToPosition(_ctx.transform.position + _kiteDirection * 3f);
+            _ctx.MovementManager.FaceTarget();
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
+        {
+            _ctx.Animator.SetBool("IsMoving", false);
+        }
+
+        public override void CheckSwitchState()
+        {
+            if (!_ctx.HasLineOfSight(_ctx.PlayerTransform))
+            {
+                _stateMachine.ChangeState(_ctx.SearchState);
+                return;
+            }
+
+            if (!_ctx.IsPlayerInDetectionRange())
+            {
+                _stateMachine.ChangeState(_ctx.SearchState);
+                return;
+            }
+
+            if (_rangedCtx.IsPlayerTooClose())
+            {
+                _kiteTimer = 0f;
+                ComputeKiteDirection();
+                return;
+            }
+
+            if (_kiteTimer >= _kiteDuration && _rangedCtx.IsPlayerInShootRange())
+            {
+                _stateMachine.ChangeState(_ctx.ShootState);
+            }
+        }
+
+        private void ComputeKiteDirection()
+        {
+            Vector3 toPlayer = (_ctx.PlayerTransform.position - _ctx.transform.position).normalized;
+            Vector3 lateralOffset = Vector3.Cross(Vector3.up, toPlayer) * 0.4f;
+            _kiteDirection = (-toPlayer + lateralOffset).normalized;
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Ranged-enemy firing state. Holds position, faces the player, and fires via an animation event.
+    /// Re-enters itself when cooldown elapses and the firing window remains open.
+    /// </summary>
+    public class EnemyShootState : EnemyBaseState
+    {
+        #region Private Variables
+
+        private float _shootTimer;
+        private bool _hasFired;
+        private readonly RangedEnemyController _rangedCtx;
+
+        #endregion
+
+        public EnemyShootState(EnemyController ctx, EnemyStateMachine stateMachine) : base(ctx, stateMachine)
+        {
+            _rangedCtx = ctx.GetComponent<RangedEnemyController>();
+        }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _hasFired = false;
+            _shootTimer = 0f;
+            _ctx.MovementManager.Stop();
+            _ctx.Animator.SetTrigger("Shoot");
+        }
+
+        public override void UpdateState()
+        {
+            _shootTimer += Time.deltaTime;
+            _ctx.MovementManager.FaceTarget();
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState() { }
+
+        public override void CheckSwitchState()
+        {
+            if (!_hasFired) return;
+
+            // Wait for cooldown after the projectile was fired before re-evaluating
+            if (_shootTimer < _rangedCtx.ShootCooldown) return;
+
+            if (_rangedCtx.IsPlayerTooClose())
+            {
+                _stateMachine.ChangeState(_ctx.KiteState);
+                return;
+            }
+
+            if (!_ctx.HasLineOfSight(_ctx.PlayerTransform) || !_rangedCtx.IsPlayerInShootRange())
+            {
+                _stateMachine.ChangeState(_ctx.KiteState);
+                return;
+            }
+
+            // Firing window still open — reset and fire again
+            EnterState();
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Triggered via Animation Event to launch the projectile at the player.
+        /// </summary>
+        public void OnFireProjectile()
+        {
+            _rangedCtx.Launcher.Fire();
+            _hasFired = true;
+            // Reset timer so ShootCooldown is measured from the moment of firing
+            _shootTimer = 0f;
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Locks the boss in place while the phase-transition animation plays.
+    /// Grants invulnerability for the duration and hands off to <see cref="EnemyChaseState"/>
+    /// once the animation event (or safety timeout) signals completion.
+    /// </summary>
+    public class BossPhaseTransitionState : EnemyBaseState
+    {
+        #region Constants & Private Variables
+
+        private const float SAFETY_TIMEOUT = 6f;
+
+        private readonly BossController _boss;
+        private bool _transitionFinished;
+        private float _safetyTimer;
+
+        #endregion
+
+        public BossPhaseTransitionState(EnemyController ctx, EnemyStateMachine sm,
+            BossController boss) : base(ctx, sm)
+        {
+            _boss = boss;
+        }
+
+        #region State/Core Logic
+
+        public override void EnterState()
+        {
+            _transitionFinished = false;
+            _safetyTimer = 0f;
+
+            _ctx.MovementManager.Stop();
+            _ctx.MovementManager.SetAgentActive(false);
+            _ctx.Animator.SetTrigger("PhaseTransition");
+            _ctx.StatsManager.SetInvulnerable(true);
+        }
+
+        public override void UpdateState()
+        {
+            _safetyTimer += Time.deltaTime;
+            if (_safetyTimer > SAFETY_TIMEOUT)
+                _transitionFinished = true;
+        }
+
+        public override void FixedUpdateState() { }
+
+        public override void ExitState()
+        {
+            _ctx.MovementManager.SetAgentActive(true);
+            _ctx.StatsManager.SetInvulnerable(false);
+        }
+
+        public override void CheckSwitchState()
+        {
+            if (!_transitionFinished) return;
+            _stateMachine.ChangeState(_ctx.ChaseState);
+        }
+
+        #endregion
+
+        #region Event Listeners/Callbacks
+
+        /// <summary>
+        /// Called by <see cref="BossController.OnTransitionFinished"/> when the animation event fires.
+        /// </summary>
+        public void OnTransitionAnimationFinished() => _transitionFinished = true;
+
+        #endregion
+    }
 }

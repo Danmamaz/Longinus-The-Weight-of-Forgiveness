@@ -47,6 +47,16 @@ namespace Longinus.InGameItems
                 Vector3 hitNormal = (transform.position - hitPoint).normalized;
 
                 damageable.TakeDamage(_damageAmount, _poiseAmount, hitPoint, hitNormal);
+
+                Longinus.Visuals.HitImpactPool.Instance?.PlayHitImpact(hitPoint, hitNormal);
+
+                if (Longinus.Audio.AudioDirector.Instance != null)
+                {
+                    if (other.CompareTag("Player"))
+                        Longinus.Audio.AudioDirector.Instance.PlayPlayerHurt();
+                    else
+                        Longinus.Audio.AudioDirector.Instance.PlayEnemyHurt();
+                }
             }
         }
 

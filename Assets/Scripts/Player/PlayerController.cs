@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using Longinus.UI;
 using Longinus.PlotSystem;
 using Longinus.Save;
+using Longinus.Visuals;
 
 namespace Longinus.Player
 {
@@ -30,8 +31,17 @@ namespace Longinus.Player
         [SerializeField, Tooltip("Reference to the interaction input action.")] 
         private InputActionReference _interactActionRef;
         
-        [SerializeField, Tooltip("Reference to the pause menu input action.")] 
+        [SerializeField, Tooltip("Reference to the pause menu input action.")]
         private InputActionReference _pauseActionRef;
+
+        [SerializeField, Tooltip("Reference to the lock-on toggle input action.")]
+        private InputActionReference _lockOnActionRef;
+
+        [SerializeField, Tooltip("Reference to the switch lock-on target left input action.")]
+        private InputActionReference _switchTargetLeftRef;
+
+        [SerializeField, Tooltip("Reference to the switch lock-on target right input action.")]
+        private InputActionReference _switchTargetRightRef;
 
         [Header("Movement & Roll Stats")]
         [SerializeField] private float _moveSpeed = 6f;
@@ -48,9 +58,11 @@ namespace Longinus.Player
         #endregion
 
         #region Private Variables
-        
+
         private PlayerStateMachine _stateMachine;
-        
+        private System.Action<InputAction.CallbackContext> _onSwitchTargetLeft;
+        private System.Action<InputAction.CallbackContext> _onSwitchTargetRight;
+
         #endregion
 
         #region Public Properties
@@ -66,6 +78,7 @@ namespace Longinus.Player
         public PlayerCombatManager CombatManager { get; private set; }
         public PlayerStatsManager Stats { get; private set; }
         public PlayerLocomotion Locomotion { get; private set; }
+        public LockOnSystem LockOnSystem { get; private set; }
         public InteractionSystem InteractionSystem => _interactionSystem;
 
         // State Machine States
@@ -93,7 +106,11 @@ namespace Longinus.Player
             CombatManager = GetComponent<PlayerCombatManager>();
             Stats = GetComponent<PlayerStatsManager>();
             Locomotion = GetComponent<PlayerLocomotion>();
+            LockOnSystem = GetComponent<LockOnSystem>();
             Animator = GetComponentInChildren<Animator>();
+
+            _onSwitchTargetLeft = _ => LockOnSystem?.SwitchTarget(-1);
+            _onSwitchTargetRight = _ => LockOnSystem?.SwitchTarget(+1);
 
             InitStateMachine();
         }
@@ -108,6 +125,12 @@ namespace Longinus.Player
             _attackActionRef.action.performed += OnAttackPerformed;
             _interactActionRef.action.performed += OnInteractPerformed;
             _pauseActionRef.action.performed += OnPausePerformed;
+            if (_lockOnActionRef != null)
+                _lockOnActionRef.action.performed += OnLockOnPerformed;
+            if (_switchTargetLeftRef != null)
+                _switchTargetLeftRef.action.performed += _onSwitchTargetLeft;
+            if (_switchTargetRightRef != null)
+                _switchTargetRightRef.action.performed += _onSwitchTargetRight;
 
             Stats.OnDeath += HandleDeath;
         }
@@ -142,6 +165,12 @@ namespace Longinus.Player
             _attackActionRef.action.performed -= OnAttackPerformed;
             _interactActionRef.action.performed -= OnInteractPerformed;
             _pauseActionRef.action.performed -= OnPausePerformed;
+            if (_lockOnActionRef != null)
+                _lockOnActionRef.action.performed -= OnLockOnPerformed;
+            if (_switchTargetLeftRef != null)
+                _switchTargetLeftRef.action.performed -= _onSwitchTargetLeft;
+            if (_switchTargetRightRef != null)
+                _switchTargetRightRef.action.performed -= _onSwitchTargetRight;
 
             SetInputActionsState(false);
 
@@ -184,6 +213,9 @@ namespace Longinus.Player
                 _rollActionRef.action.Enable();
                 _attackActionRef.action.Enable();
                 _interactActionRef.action.Enable();
+                if (_lockOnActionRef != null) _lockOnActionRef.action.Enable();
+                if (_switchTargetLeftRef != null) _switchTargetLeftRef.action.Enable();
+                if (_switchTargetRightRef != null) _switchTargetRightRef.action.Enable();
             }
             else
             {
@@ -191,6 +223,9 @@ namespace Longinus.Player
                 _rollActionRef.action.Disable();
                 _attackActionRef.action.Disable();
                 _interactActionRef.action.Disable();
+                if (_lockOnActionRef != null) _lockOnActionRef.action.Disable();
+                if (_switchTargetLeftRef != null) _switchTargetLeftRef.action.Disable();
+                if (_switchTargetRightRef != null) _switchTargetRightRef.action.Disable();
             }
         }
 
@@ -198,8 +233,10 @@ namespace Longinus.Player
         {
             if (_stateMachine.CurrentState != DeadState)
             {
+                LockOnSystem?.ClearLockOn();
                 _stateMachine.ChangeState(DeadState);
                 SetInputActionsState(false);
+                PostProcessingDirector.Instance?.TransitionTo(PostProcessingDirector.PostProcessingMode.Death, 2f);
             }
         }
 
@@ -214,6 +251,7 @@ namespace Longinus.Player
 
         private void OnRollPerformed(InputAction.CallbackContext context) => RollTriggered = true;
         private void OnAttackPerformed(InputAction.CallbackContext context) => AttackTriggered = true;
+        private void OnLockOnPerformed(InputAction.CallbackContext context) => LockOnSystem?.ToggleLockOn();
 
         private void OnInteractPerformed(InputAction.CallbackContext context)
         {

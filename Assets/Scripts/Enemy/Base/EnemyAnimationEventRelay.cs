@@ -13,7 +13,13 @@ namespace Longinus.EnemySystem
         
         [Tooltip("Explicit reference to the weapon's damage collider to avoid expensive runtime GetComponent calls.")]
         [SerializeField] private DamageCollider _weaponDamageCollider;
-        
+
+        [Tooltip("All BoneColliderGroup components on this boss's skeleton, indexed by group name.")]
+        [SerializeField] private BoneColliderGroup[] _boneGroups;
+
+        [Tooltip("AoE slam hitbox component for ground-slam attacks. Boss only.")]
+        [SerializeField] private AoESlamHitbox _aoeSlamHitbox;
+
         #endregion
 
         #region Private Variables
@@ -93,7 +99,103 @@ namespace Longinus.EnemySystem
         {
             (_controller.StaggeredState as EnemyStaggeredState)?.OnStaggerFinished();
         }
-        
+
+        /// <summary>
+        /// Triggered via Animation Event on the shoot animation's fire frame.
+        /// </summary>
+        public void OnFireProjectile()
+        {
+            (_controller.ShootState as EnemyShootState)?.OnFireProjectile();
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event when the boss phase-transition animation finishes.
+        /// Routes through <see cref="BossController.OnTransitionFinished"/> so both the state
+        /// machine and the phase commit happen in one call.
+        /// </summary>
+        public void OnPhaseTransitionFinished()
+        {
+            GetComponent<BossController>()?.OnTransitionFinished();
+        }
+
+        /// <summary>
+        /// Alias for <see cref="OnPhaseTransitionFinished"/>. Use whichever name is clearer
+        /// on the animation event in the Animator window.
+        /// </summary>
+        public void OnBossTransitionFinished()
+        {
+            GetComponent<BossController>()?.OnTransitionFinished();
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event at the apex of the PhaseLeap animation.
+        /// Initiates the arc-movement coroutine on the boss.
+        /// </summary>
+        public void OnPhaseLeapStart()
+        {
+            GetComponent<BossController>()?.ExecuteLeapMovement();
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event to activate a named bone collider group.
+        /// </summary>
+        public void EnableBoneGroup(string groupName)
+        {
+            foreach (var group in _boneGroups)
+            {
+                if (group != null && group.GroupName == groupName)
+                {
+                    group.Enable();
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event to deactivate a named bone collider group.
+        /// </summary>
+        public void DisableBoneGroup(string groupName)
+        {
+            foreach (var group in _boneGroups)
+            {
+                if (group != null && group.GroupName == groupName)
+                {
+                    group.Disable();
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event to deactivate all bone collider groups at once
+        /// (e.g., on attack interrupt or animation exit).
+        /// </summary>
+        public void DisableAllBoneGroups()
+        {
+            foreach (var group in _boneGroups)
+            {
+                if (group != null) group.Disable();
+            }
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event on the AoE Slam's impact frame.
+        /// </summary>
+        public void TriggerAoESlam()
+        {
+            _aoeSlamHitbox?.TriggerSlam();
+        }
+
+        /// <summary>
+        /// Triggered via Animation Event when a boss attack animation fully completes.
+        /// Also disables all bone groups to prevent stuck-open hitboxes.
+        /// </summary>
+        public void OnBossAttackFinished()
+        {
+            DisableAllBoneGroups();
+            (_controller.AttackState as BossAttackState)?.OnAttackFinished();
+        }
+
         #endregion
     }
 }

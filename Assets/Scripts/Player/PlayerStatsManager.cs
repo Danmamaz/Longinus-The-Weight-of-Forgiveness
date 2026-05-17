@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Longinus.Interfaces;
+using Longinus.PlotSystem;
 
 namespace Longinus.Player
 {
@@ -219,9 +220,11 @@ namespace Longinus.Player
         private void Die()
         {
             if (_isDead) return;
-            
+
             _isDead = true;
             CurrentHealth = 0f;
+            if (PlotManager.Instance != null)
+                PlotManager.Instance.PlotState.AddToInt("PlayerDeaths", 1);
             OnDeath?.Invoke();
         }
 

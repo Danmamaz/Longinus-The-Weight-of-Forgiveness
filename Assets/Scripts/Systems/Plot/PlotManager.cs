@@ -15,6 +15,9 @@ namespace Longinus.PlotSystem
         [Header("Configuration")]
         [SerializeField] private PlotState _plotState;
 
+        [SerializeField, Tooltip("Registry of all PlotBranch assets. Evaluated after every state change.")]
+        private PlotBranchRegistry _branchRegistry;
+
         [Header("Global Events")]
         [Tooltip("Fires whenever any flag is set. Subscribe to update UI, unlock doors, or trigger dialogue.")]
         public UnityEvent<string> OnFlagUpdated;
@@ -25,6 +28,7 @@ namespace Longinus.PlotSystem
 
         public static PlotManager Instance { get; private set; }
         public PlotState PlotState => _plotState;
+        public PlotBranchRegistry BranchRegistry => _branchRegistry;
 
         #endregion
 
@@ -62,7 +66,7 @@ namespace Longinus.PlotSystem
 
         /// <summary>
         /// Applies every consequence in the list to the current plot state and fires OnFlagUpdated
-        /// for each newly set flag.
+        /// for each newly set flag. Re-evaluates all branches afterwards.
         /// </summary>
         public void ApplyConsequences(List<PlotConsequence> consequences)
         {
@@ -77,10 +81,12 @@ namespace Longinus.PlotSystem
                     OnFlagUpdated?.Invoke(consequence.FlagToSet);
                 }
             }
+
+            if (_branchRegistry != null) _branchRegistry.TryFireAll(_plotState);
         }
 
         /// <summary>
-        /// Sets a flag and broadcasts it to all listeners.
+        /// Sets a flag, broadcasts it to all listeners, and re-evaluates all branches.
         /// </summary>
         public void TriggerFlag(string flagId)
         {
@@ -88,6 +94,22 @@ namespace Longinus.PlotSystem
 
             _plotState.SetFlag(flagId);
             OnFlagUpdated?.Invoke(flagId);
+            if (_branchRegistry != null) _branchRegistry.TryFireAll(_plotState);
+        }
+
+        /// <summary>
+        /// Finds the branch by ID and fires it if its conditions are met.
+        /// Returns false if the branch is not found, cannot fire, or has already fired.
+        /// </summary>
+        public bool TryFireBranch(string branchId)
+        {
+            if (_branchRegistry == null) return false;
+            var branch = _branchRegistry.GetById(branchId);
+            if (branch == null) return false;
+            if (!branch.CanFire(_plotState)) return false;
+            branch.Fire(_plotState);
+            OnFlagUpdated?.Invoke(branchId + "_fired");
+            return true;
         }
 
         /// <summary>

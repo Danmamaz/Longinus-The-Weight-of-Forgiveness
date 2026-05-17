@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Longinus.Interfaces;
+using Longinus.PlotSystem;
 
 namespace Longinus.EnemySystem
 {
@@ -31,21 +32,25 @@ namespace Longinus.EnemySystem
         #endregion
 
         #region Private Variables
-        
+
         private bool _isDead;
+        private bool _isInvulnerable;
         private float _timeSinceLastHit;
         private EnemyController _controller;
-        
+
         #endregion
 
         #region Public Properties
-        
+
         public bool IsInChoicePhase { get; private set; }
         public bool IsSpareable => _isSpareable;
+        public bool IsInvulnerable => _isInvulnerable;
         public float CurrentHealth { get; private set; }
         public float MaxHealth => _maxHealth;
         public float CurrentPoise { get; private set; }
-        
+
+        public void SetInvulnerable(bool value) => _isInvulnerable = value;
+
         #endregion
 
         #region Events
@@ -90,6 +95,8 @@ namespace Longinus.EnemySystem
         /// </summary>
         public void TakeDamage(float amount, float poiseDamage, Vector3 hitPoint, Vector3 hitNormal)
         {
+            if (_isInvulnerable) return;
+
             CurrentHealth -= amount;
             CurrentPoise -= poiseDamage;
             _timeSinceLastHit = 0f;
@@ -142,6 +149,8 @@ namespace Longinus.EnemySystem
             }
             else
             {
+                if (PlotManager.Instance != null)
+                    PlotManager.Instance.PlotState.AddToInt("enemyKills", 1);
                 _isDead = true;
                 OnDeath?.Invoke();
             }

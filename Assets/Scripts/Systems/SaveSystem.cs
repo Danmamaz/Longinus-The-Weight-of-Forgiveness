@@ -90,12 +90,18 @@ namespace Longinus.Save
 
                 SaveData data = JsonUtility.FromJson<SaveData>(json);
 
-                // Відновлюємо PlotState з вкладеного JSON
+                // Restore PlotState from embedded JSON
                 if (!string.IsNullOrEmpty(data._plotStateJson))
                 {
                     JsonUtility.FromJsonOverwrite(data._plotStateJson, state);
-                    // КРИТИЧНО: Відбудовуємо кеші для миттєвого пошуку після завантаження
                     state.RebuildRuntimeCaches();
+
+                    if (!state.IsCompatibleVersion(data._saveFormatVersion))
+                    {
+                        Debug.LogWarning($"[SaveSystem] Save format version {data._saveFormatVersion} " +
+                                         $"is newer than PlotState version {state.SaveFormatVersion}. " +
+                                         "Some flags may be unrecognized.");
+                    }
                 }
 
                 stats.RestoreState(
@@ -107,7 +113,12 @@ namespace Longinus.Save
 
                 loadedLocation = data._location;
                 loadedSceneIndex = data._buildSceneIndex;
-                
+
+                // Re-evaluate auto-detected branches whose conditions may already be met
+                // from counters restored above (e.g. enemyKills >= 10 → BR-04).
+                if (PlotManager.Instance != null && PlotManager.Instance.BranchRegistry != null)
+                    PlotManager.Instance.BranchRegistry.TryFireAll(state);
+
                 Debug.Log("[SaveSystem] State successfully loaded.");
                 return true;
             }
@@ -155,6 +166,9 @@ namespace Longinus.Save
 
                 loadedLocation = data._location;
                 loadedSceneIndex = data._buildSceneIndex;
+
+                if (PlotManager.Instance != null && PlotManager.Instance.BranchRegistry != null)
+                    PlotManager.Instance.BranchRegistry.TryFireAll(state);
 
                 Debug.LogWarning("[SaveSystem] State successfully restored from backup.");
                 return true;
@@ -229,6 +243,7 @@ namespace Longinus.Save
         [Serializable]
         private class SaveData
         {
+            public int _saveFormatVersion;
             public int _buildSceneIndex;
             public Vector3 _location;
 
@@ -248,6 +263,7 @@ namespace Longinus.Save
 
             public SaveData(PlotState plot, PlayerStatsManager stats, Vector3 saveLocation, int sceneIndex)
             {
+                _saveFormatVersion = plot != null ? plot.SaveFormatVersion : 1;
                 _buildSceneIndex = sceneIndex;
                 _location = saveLocation;
                 _maxHealth = stats.MaxHealth;

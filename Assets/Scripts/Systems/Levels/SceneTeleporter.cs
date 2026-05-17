@@ -30,6 +30,8 @@ namespace Longinus.Levels
 
         private void OnTriggerEnter(Collider collider)
         {
+            // Ensure the Player GameObject has tag "Player" assigned.
+            if (!collider.CompareTag("Player")) return;
             StartCoroutine(LoadScene());
         }
 

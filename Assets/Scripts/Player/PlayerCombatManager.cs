@@ -115,6 +115,7 @@ namespace Longinus.Player
             _nextInputReceived = false;
             
             _animator.CrossFadeInFixedTime(attack.AnimationHash, 0.1f);
+            Longinus.Audio.AudioDirector.Instance?.PlaySwordSwing();
 
             if (_locomotion != null)
             {

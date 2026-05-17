@@ -1,4 +1,5 @@
 using UnityEngine;
+using Longinus.Visuals;
 
 namespace Longinus.Player
 {
@@ -117,7 +118,15 @@ namespace Longinus.Player
             CheckSwitchStates();
             _ctx.Animator.SetBool(_animIsMovingHash, _ctx.IsMoving);
             
-            if (_ctx.IsMoving)
+            if (_ctx.LockOnSystem != null && _ctx.LockOnSystem.IsLockedOn
+                && _ctx.LockOnSystem.CurrentTarget != null)
+            {
+                Vector3 toTarget = _ctx.LockOnSystem.CurrentTarget.position - _ctx.transform.position;
+                toTarget.y = 0f;
+                if (toTarget.sqrMagnitude > 0.001f)
+                    _ctx.Locomotion.HandleRotation(toTarget.normalized, _ctx.RotationSpeed);
+            }
+            else if (_ctx.IsMoving)
             {
                 _ctx.Locomotion.HandleRotation(_ctx.MoveInput, _ctx.RotationSpeed);
             }
@@ -320,8 +329,8 @@ namespace Longinus.Player
         {
             _ctx.Animator.SetTrigger("Rest");
             _ctx.SetInputActionsState(false);
-
             _ctx.EnableInteractionOnly();
+            PostProcessingDirector.Instance?.TransitionTo(PostProcessingDirector.PostProcessingMode.Rest, 1.5f);
         }
 
         public override void UpdateState() { }
@@ -332,6 +341,7 @@ namespace Longinus.Player
         {
             _ctx.Animator.CrossFadeInFixedTime("Idle", .2f);
             _ctx.SetInputActionsState(true);
+            PostProcessingDirector.Instance?.TransitionTo(PostProcessingDirector.PostProcessingMode.Normal, 1f);
         }
     }
 }

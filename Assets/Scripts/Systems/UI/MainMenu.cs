@@ -65,6 +65,7 @@ namespace Longinus.UI
         public void ShowButtons()
         {
             _white.SetActive(true);
+            Longinus.Audio.AudioDirector.Instance?.PlayMenuClick();
             _textToAppear.SetActive(false);
 
             foreach (var buttonRect in _buttonRects)

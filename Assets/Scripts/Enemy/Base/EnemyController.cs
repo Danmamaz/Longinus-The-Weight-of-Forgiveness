@@ -68,6 +68,8 @@ namespace Longinus.EnemySystem
         public EnemyMovementManager MovementManager { get; private set; }
         public EnemyStatsManager StatsManager { get; private set; }
 
+        public EnemyStateMachine StateMachine => _stateMachine;
+
         public EnemyIdleState IdleState { get; private set; }
         public EnemyChaseState ChaseState { get; private set; }
         public EnemyAttackState AttackState { get; private set; }
@@ -77,6 +79,9 @@ namespace Longinus.EnemySystem
         public EnemyStaggeredState StaggeredState { get; private set; }
         public EnemyBossDeathChoiceState BossDeathChoiceState { get; private set; }
         public EnemyDeadState DeadState { get; private set; }
+        public EnemyKiteState KiteState { get; private set; }
+        public EnemyShootState ShootState { get; private set; }
+        public BossPhaseTransitionState PhaseTransitionState { get; private set; }
 
         public bool HasLastKnownPosition { get; private set; }
         public Vector3 LastKnownPlayerPosition { get; private set; }
@@ -220,28 +225,34 @@ namespace Longinus.EnemySystem
         }
 
         /// <summary>
+        /// Casts a ray to determine whether the enemy has an unobstructed line of sight to the target.
+        /// </summary>
+        public bool HasLineOfSight(Transform target)
+        {
+            if (target == null) return false;
+
+            Vector3 directionToTarget = target.position - transform.position;
+            float distanceToTarget = directionToTarget.magnitude;
+            Vector3 rayStart = transform.position + Vector3.up;
+
+            return !Physics.Raycast(rayStart, directionToTarget.normalized, distanceToTarget, _obstacleLayer);
+        }
+
+        /// <summary>
         /// Evaluates distance, field of view, and line of sight to determine if the player is visible.
         /// </summary>
         public bool IsPlayerInDetectionRange()
         {
             if (_playerTransform == null) return false;
-            
+
             Vector3 directionToPlayer = _playerTransform.position - transform.position;
-            
+
             if (directionToPlayer.sqrMagnitude > _sqrDetectionRange) return false;
 
             float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
             if (angleToPlayer > _fieldOfViewAngle / 2f) return false;
 
-            float distanceToPlayer = directionToPlayer.magnitude;
-            Vector3 rayStartOffset = transform.position + Vector3.up; 
-            
-            if (Physics.Raycast(rayStartOffset, directionToPlayer.normalized, out RaycastHit hit, distanceToPlayer, _obstacleLayer))
-            {
-                return false;
-            }
-
-            return true;
+            return HasLineOfSight(_playerTransform);
         }
 
         /// <summary>
@@ -303,6 +314,32 @@ namespace Longinus.EnemySystem
             {
                 MovementManager.SetAgentActive(true);
             }
+        }
+
+        /// <summary>
+        /// Registers ranged combat states supplied by RangedEnemyController during its initialization.
+        /// </summary>
+        public void RegisterRangedStates(EnemyKiteState kiteState, EnemyShootState shootState)
+        {
+            KiteState = kiteState;
+            ShootState = shootState;
+        }
+
+        /// <summary>
+        /// Replaces the default <see cref="EnemyAttackState"/> with a boss-specific subclass.
+        /// Called by <see cref="BossController"/> after all states are constructed.
+        /// </summary>
+        public void OverrideAttackState(EnemyAttackState newAttackState)
+        {
+            AttackState = newAttackState;
+        }
+
+        /// <summary>
+        /// Registers the boss phase-transition state created by <see cref="BossController"/>.
+        /// </summary>
+        public void RegisterPhaseTransitionState(BossPhaseTransitionState state)
+        {
+            PhaseTransitionState = state;
         }
 
         /// <summary>

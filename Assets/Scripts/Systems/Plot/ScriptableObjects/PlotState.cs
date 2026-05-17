@@ -28,6 +28,10 @@ namespace Longinus.PlotSystem
     {
         #region Constants & Inspector Variables
 
+        [Header("Save Format")]
+        [SerializeField, Tooltip("Incremented when the serialized layout changes in a breaking way.")]
+        private int _saveFormatVersion = 1;
+
         [Header("Boolean Flags")]
         [SerializeField, Tooltip("List of all flags that have been set during this playthrough.")]
         private List<string> _activeFlags = new List<string>();
@@ -84,6 +88,22 @@ namespace Longinus.PlotSystem
             _knightState = KnightState.Alive;
             RebuildRuntimeCaches();
         }
+
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnEnterPlayMode]
+        private static void ResetAllPlotStatesOnPlay(
+            UnityEditor.EnterPlayModeOptions options)
+        {
+            // Find all PlotState assets and reset them when entering play mode
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:PlotState");
+            foreach (string guid in guids)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                PlotState ps = UnityEditor.AssetDatabase.LoadAssetAtPath<PlotState>(path);
+                if (ps != null) ps.ResetState();
+            }
+        }
+#endif
 
         #endregion
 
@@ -168,6 +188,17 @@ namespace Longinus.PlotSystem
         {
             SetInt(key, GetInt(key) + amount);
         }
+
+        #endregion
+
+        #region Public Properties
+
+        public int SaveFormatVersion => _saveFormatVersion;
+
+        /// <summary>
+        /// Returns false if a save file was written with a newer format version than this asset supports.
+        /// </summary>
+        public bool IsCompatibleVersion(int loadedVersion) => loadedVersion <= _saveFormatVersion;
 
         #endregion
 

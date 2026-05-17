@@ -33,7 +33,8 @@ namespace Longinus.InGameItems
 
             _spawnPoint.GetComponent<Animator>().SetTrigger("Activated");
 
-            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);          
+            SaveSystem.SaveState(_plotStateRef, player.Stats, _spawnPoint.position, SceneManager.GetActiveScene().buildIndex);
+            Longinus.Audio.AudioDirector.Instance?.PlayCheckpoint();
         }
 
         public string GetInteractionText()
