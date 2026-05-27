@@ -4,7 +4,7 @@
 
 # Longinus: The Weight of Forgiveness
 
-**Diploma Project — Technical Vertical Slice of a Souls-like Action-RPG**
+**Diploma Project —  a Souls-like Action-RPG**
 
 ![Unity](https://img.shields.io/badge/Unity-6000.2.10f1-black?logo=unity)
 ![URP](https://img.shields.io/badge/Render-Universal%20RP-blue)
@@ -38,7 +38,7 @@
 
 ## About the Project
 
-**Longinus: The Weight of Forgiveness** is a technical vertical slice of a hardcore Souls-like Action-RPG, built as a diploma project. The game is set in a dark medieval world where the player embodies Longinus — a fallen knight seeking redemption. Every decision carries moral weight and permanently shapes the world and its ending.
+**Longinus: The Weight of Forgiveness** is a Souls-like Action-RPG, built as a diploma project. Every decision carries weight and permanently shapes the world and its ending.
 
 The primary focus of this project is **not** art or content volume, but the **technical depth** of its systems:
 
@@ -383,7 +383,7 @@ Unity Menu → Longinus → QA → Run Full Scan
 ```
 The report is written to `Assets/Documentation/QA_Report.md`.
 
-### Building the Vertical Slice
+### Building the project
 
 ```
 Unity Menu → Longinus → Build → Build Vertical Slice
@@ -394,7 +394,7 @@ Unity Menu → Longinus → Build → Build Vertical Slice
 
 ## Author
 
-**Danylo Mamaza** (`danmamaz`)
+**Danylo Lytvyn** (`danmamaz`)
 
 Diploma project developed at [University Name], Faculty of [Faculty Name], specialization **[Specialization]**, academic year 2025–2026.
 
@@ -406,6 +406,6 @@ The project was built with a focus on **engineering discipline**: clean architec
 
 <div align="center">
 
-*Longinus: The Weight of Forgiveness — © 2026 Danylo Mamaza. All rights reserved.*
+*Longinus: The Weight of Forgiveness — © 2026 Danylo Lytvyn. All rights reserved.*
 
 </div>
